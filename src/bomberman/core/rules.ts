@@ -79,6 +79,28 @@ export const getAdjacentPositions = ({ x, y }: BombermanPosition): (BombermanPos
 export const countRemainingContributions = (store: BombermanStore) =>
 	store.grid.reduce((sum, col) => sum + col.filter((cell) => cell.commitsCount > 0).length, 0);
 
+export const clearContributionCellSilently = (store: BombermanStore, position: BombermanPosition) => {
+	if (!isContributionCell(store, position)) return false;
+
+	const theme = Utils.getCurrentTheme(store);
+	store.grid[position.x][position.y] = {
+		commitsCount: 0,
+		level: 'NONE',
+		color: theme.intensityColors[0]
+	};
+
+	return true;
+};
+
+export const clearSpawnArea = (store: BombermanStore, topLeft: BombermanPosition) => {
+	for (let x = topLeft.x; x < topLeft.x + 2; x++) {
+		for (let y = topLeft.y; y < topLeft.y + 2; y++) {
+			const position = { x, y };
+			if (inBounds(position)) clearContributionCellSilently(store, position);
+		}
+	}
+};
+
 export const findNearestEmptyCell = (
 	store: BombermanStore,
 	origin: BombermanPosition,

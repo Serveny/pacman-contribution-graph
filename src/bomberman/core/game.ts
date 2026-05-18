@@ -5,23 +5,27 @@ import { GRID_HEIGHT, GRID_WIDTH, BOMBERMAN_MAX_FRAMES, BOMBERMAN_SPRITE_SETS } 
 import { movePlayer, shouldPlaceBomb } from './ai';
 import {
 	canPlaceBomb,
+	clearSpawnArea,
 	countRemainingContributions,
-	findNearestEmptyCell,
 	placeBomb,
-	positionKey,
 	updateBombs,
 	updateExplosions
 } from './rules';
 import { BOMBERMAN_DEATH_ANIMATION_FRAMES } from './constants';
 
 const placePlayers = (store: BombermanStore) => {
-	const playerOneStart = findNearestEmptyCell(store, { x: 0, y: 0 });
-	const playerTwoStart = findNearestEmptyCell(store, { x: GRID_WIDTH - 1, y: GRID_HEIGHT - 1 }, new Set([positionKey(playerOneStart)]));
+	const playerOneStart = { x: 0, y: 0 };
+	const playerTwoStart = { x: GRID_WIDTH - 1, y: GRID_HEIGHT - 1 };
 
 	store.players = [
 		createPlayer(1, 'Bomberman', playerOneStart, 'right', BOMBERMAN_SPRITE_SETS.player.idleDown.data),
 		createPlayer(2, 'Plunder Bomber', playerTwoStart, 'left', BOMBERMAN_SPRITE_SETS.plunderBomber.idleDown.data)
 	];
+};
+
+const clearPlayerSpawnAreas = (store: BombermanStore) => {
+	clearSpawnArea(store, { x: 0, y: 0 });
+	clearSpawnArea(store, { x: GRID_WIDTH - 2, y: GRID_HEIGHT - 2 });
 };
 
 const createPlayer = (
@@ -98,6 +102,7 @@ const startGame = async (store: BombermanStore) => {
 	resetGameState(store);
 
 	store.grid = Utils.createGridFromData(store);
+	clearPlayerSpawnAreas(store);
 	store.initialColors = store.grid.map((col) => col.map((cell) => cell.color));
 	placePlayers(store);
 	pushSnapshot(store);
