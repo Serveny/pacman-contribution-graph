@@ -1,9 +1,16 @@
 import * as core from '@actions/core';
 import * as fs from 'fs';
-import { ARCADE_GAMES, ArcadeRenderer } from 'pacman-contribution-graph';
+import {
+	BombermanRenderer,
+	BreakoutRenderer,
+	GalagaRenderer,
+	PacmanRenderer,
+	PuzzleBobbleRenderer
+} from 'pacman-contribution-graph';
 import * as path from 'path';
 
 const STATS_ENDPOINT = 'https://elec.abozanona.me/receive_stats.php';
+const VALID_GAMES = ['pacman', 'breakout', 'galaga', 'puzzle-bobble', 'bomberman'];
 
 const reportStats = async (username, platform, gameType, stats) => {
 	try {
@@ -29,8 +36,7 @@ const generateSvg = async (game, userName, githubToken, theme, playerStyle) => {
 	return new Promise((resolve, reject) => {
 		let generatedSvg = '';
 		let gameStats = null;
-		const renderer = new ArcadeRenderer({
-			game,
+		const conf = {
 			platform: 'github',
 			username: userName,
 			gameTheme: theme,
@@ -48,7 +54,25 @@ const generateSvg = async (game, userName, githubToken, theme, playerStyle) => {
 				resolve({ svg: generatedSvg, stats: gameStats });
 			},
 			pointsIncreasedCallback: () => {}
-		});
+		};
+
+		let renderer;
+		switch (game) {
+			case 'breakout':
+				renderer = new BreakoutRenderer(conf);
+				break;
+			case 'galaga':
+				renderer = new GalagaRenderer(conf);
+				break;
+			case 'puzzle-bobble':
+				renderer = new PuzzleBobbleRenderer(conf);
+				break;
+			case 'bomberman':
+				renderer = new BombermanRenderer(conf);
+				break;
+			default:
+				renderer = new PacmanRenderer(conf);
+		}
 		renderer.start().catch(reject);
 	});
 };
@@ -70,13 +94,13 @@ const generateSvg = async (game, userName, githubToken, theme, playerStyle) => {
 			)
 		];
 		for (const game of games) {
-			if (!ARCADE_GAMES.includes(game)) {
-				core.warning(`Unknown game "${game}" — skipping. Valid values: ${ARCADE_GAMES.join(', ')}`);
+			if (!VALID_GAMES.includes(game)) {
+				core.warning(`Unknown game "${game}" — skipping. Valid values: ${VALID_GAMES.join(', ')}`);
 			}
 		}
-		const selectedGames = games.filter((g) => ARCADE_GAMES.includes(g));
+		const selectedGames = games.filter((g) => VALID_GAMES.includes(g));
 		if (selectedGames.length === 0) {
-			core.setFailed(`No valid games specified. Valid values: ${ARCADE_GAMES.join(', ')}`);
+			core.setFailed(`No valid games specified. Valid values: ${VALID_GAMES.join(', ')}`);
 			return;
 		}
 
