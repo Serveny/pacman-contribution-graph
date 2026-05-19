@@ -5,9 +5,8 @@ import {
 	bombWouldHitTarget,
 	DIRECTIONS,
 	getBlastCells,
-	isActiveExplosionCell,
 	isContributionCell,
-	isInOwnFutureBlast,
+	isOwnExplosionDangerCell,
 	isPassableCell,
 	manhattan,
 	positionKey,
@@ -84,8 +83,7 @@ export const shouldPlaceBomb = (store: BombermanStore, player: BombermanPlayer) 
 
 export const movePlayer = (store: BombermanStore, player: BombermanPlayer) => {
 	const escapeStep = findEscapeStep(store, player);
-	const mustEscape =
-		Boolean(bombAt(store, player)) || isActiveExplosionCell(store, player, player.id) || isInOwnFutureBlast(store, player, player);
+	const mustEscape = Boolean(bombAt(store, player)) || isOwnExplosionDangerCell(store, player, player);
 
 	if (mustEscape) {
 		if (escapeStep) movePlayerTo(player, escapeStep);
@@ -103,8 +101,7 @@ export const movePlayer = (store: BombermanStore, player: BombermanPlayer) => {
 	const safeDirectStep =
 		directRoute?.firstStep &&
 		isPassableCell(store, directRoute.firstStep) &&
-		!isActiveExplosionCell(store, directRoute.firstStep, player.id) &&
-		!isInOwnFutureBlast(store, player, directRoute.firstStep)
+		!isOwnExplosionDangerCell(store, player, directRoute.firstStep)
 			? directRoute.firstStep
 			: null;
 	if (safeDirectStep) {
@@ -118,7 +115,7 @@ export const movePlayer = (store: BombermanStore, player: BombermanPlayer) => {
 	const bombSpot = findBestBombSpotTowardOpponent(store, player, opponent);
 	const next = bombSpot?.firstStep;
 
-	if (!next || !isPassableCell(store, next) || isActiveExplosionCell(store, next, player.id) || isInOwnFutureBlast(store, player, next)) {
+	if (!next || !isPassableCell(store, next) || isOwnExplosionDangerCell(store, player, next)) {
 		return;
 	}
 	movePlayerTo(player, next);

@@ -63,11 +63,13 @@ export const bombsThreateningAt = (store: BombermanStore, position: BombermanPos
 export const isInOwnFutureBlast = (store: BombermanStore, player: BombermanPlayer, position: BombermanPosition) =>
 	bombsThreateningAt(store, position, player.id).length > 0;
 
+export const isOwnExplosionDangerCell = (store: BombermanStore, player: BombermanPlayer, position: BombermanPosition) =>
+	isActiveExplosionCell(store, position, player.id) || isInOwnFutureBlast(store, player, position);
+
 export const isSafeStandingCell = (store: BombermanStore, player: BombermanPlayer, position: BombermanPosition) =>
 	isEmptyCell(store, position) &&
 	!bombAt(store, position) &&
-	!isActiveExplosionCell(store, position, player.id) &&
-	!isInOwnFutureBlast(store, player, position);
+	!isOwnExplosionDangerCell(store, player, position);
 
 export const getAdjacentPositions = ({ x, y }: BombermanPosition): (BombermanPosition & { direction: BombermanDirection })[] =>
 	DIRECTIONS.map((delta) => ({
@@ -226,6 +228,20 @@ export const explodeBomb = (store: BombermanStore, bomb: BombermanBomb) => {
 		frameIndex: store.gameHistory.length,
 		...explosion
 	});
+};
+
+export const killPlayersInActiveExplosions = (store: BombermanStore) => {
+	for (const player of store.players) {
+		if (!player.alive) continue;
+
+		for (const explosion of store.activeExplosions) {
+			if (!explosion.affectedCells.some((position) => samePosition(position, player))) continue;
+
+			player.alive = false;
+			if (!explosion.hitPlayerIds.includes(player.id)) explosion.hitPlayerIds.push(player.id);
+			break;
+		}
+	}
 };
 
 export const updateBombs = (store: BombermanStore) => {

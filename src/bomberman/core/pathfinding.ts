@@ -7,7 +7,7 @@ import {
 	isActiveExplosionCell,
 	isContributionCell,
 	isEmptyCell,
-	isInOwnFutureBlast,
+	isOwnExplosionDangerCell,
 	isPassableCell,
 	isSafeStandingCell,
 	manhattan,
@@ -206,8 +206,7 @@ export const findReachableBombOrigins = (
 			if (
 				visited.has(key) ||
 				!isPassableCell(store, next) ||
-				isActiveExplosionCell(store, next, player.id) ||
-				isInOwnFutureBlast(store, player, next)
+				isOwnExplosionDangerCell(store, player, next)
 			) {
 				continue;
 			}

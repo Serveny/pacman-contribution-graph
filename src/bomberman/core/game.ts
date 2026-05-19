@@ -7,6 +7,7 @@ import {
 	canPlaceBomb,
 	clearSpawnArea,
 	countRemainingContributions,
+	killPlayersInActiveExplosions,
 	placeBomb,
 	updateBombs,
 	updateExplosions
@@ -62,6 +63,7 @@ const updateGame = (store: BombermanStore) => {
 
 	updateExplosions(store);
 	updateBombs(store);
+	killPlayersInActiveExplosions(store);
 
 	for (const player of store.players) {
 		if (!player.alive) continue;
@@ -69,6 +71,7 @@ const updateGame = (store: BombermanStore) => {
 			placeBomb(store, player);
 		}
 		movePlayer(store, player);
+		killPlayersInActiveExplosions(store);
 	}
 
 	pushSnapshot(store);
