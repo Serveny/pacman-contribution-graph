@@ -36,6 +36,7 @@ export interface AnimationData {
 export interface BaseConfig {
 	platform: 'github' | 'gitlab';
 	username: string;
+	contributions?: Contribution[];
 	svgCallback: (blobUrl: string) => void;
 	gameOverCallback: () => void;
 	gameTheme: ThemeKeys;

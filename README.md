@@ -132,6 +132,18 @@ Here's how to set up and run the games:
     - `gameStatsCallback`: Called at the end with `{ totalScore, steps, ghostsEaten }`.
     - `githubSettings`: `{ accessToken: 'your_token' }` for private contribution data.
 
+### CLI Scenarios
+
+Use `--scenario <name>` to generate a game from predefined contribution data instead of fetching a user's real
+GitHub or GitLab contributions:
+
+```bash
+node cli/cli.js --scenario full --game pacman --gameTheme github-dark --output full.svg
+```
+
+Scenarios are built into the library and selected by name. Passing `--scenario` without a value uses the `random`
+scenario. Available scenarios: `full`, `empty`, `random`, `checkerboard`, `gradient`, and `streaks`.
+
 ## Integrate into Your GitHub Profile
 
 To showcase the Pac-Man game on your GitHub profile, follow these steps:
