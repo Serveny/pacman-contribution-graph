@@ -45,6 +45,7 @@ export interface BaseConfig {
 	githubSettings?: {
 		accessToken: string;
 	};
+	includeFutureContributions?: boolean;
 	maxFrames?: number;
 	maxHistorySize?: number;
 }

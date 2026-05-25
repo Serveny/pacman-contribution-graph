@@ -72,6 +72,7 @@ const renderer = new ArcadeRenderer({
 	username: argv.username ?? `scenario-${scenario.name}`,
 	gameTheme: argv.gameTheme ?? (argv.platform === 'gitlab' ? 'gitlab' : 'github'),
 	contributions: scenario.contributions,
+	includeFutureContributions: argv.scenario !== undefined,
 	svgCallback: (svg) => {
 		fs.writeFileSync(argv.output, svg);
 		console.log(`SVG saved to ${argv.output}`);

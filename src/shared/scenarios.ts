@@ -46,14 +46,7 @@ const createScenarioCounts = (name: ScenarioName): number[][] => {
 		case 'gradient':
 			return createGradientCounts({ min: 0, max: 12 });
 		case 'streaks':
-			return createStreakCounts({
-				count: 10,
-				streaks: [
-					{ day: 1, startWeek: 2, length: 12, count: 6 },
-					{ day: 3, startWeek: 18, length: 18, count: 10 },
-					{ day: 5, startWeek: 38, length: 10, count: 14 }
-				]
-			});
+			return createStreakCounts();
 	}
 };
 
@@ -99,32 +92,87 @@ const createGradientCounts = ({ min, max }: { min: number; max: number }) => {
 	);
 };
 
-const createStreakCounts = ({
-	count,
-	streaks
-}: {
-	count: number;
-	streaks: { day: number; startWeek: number; length: number; count?: number }[];
-}) => {
-	const defaultCount = toNonNegativeInteger(count);
+const createStreakCounts = () => {
 	const counts = createEmptyCounts();
 
-	for (const streak of streaks) {
-		const day = clampNumber(toNonNegativeInteger(streak.day), 0, SCENARIO_DAYS - 1);
-		const startWeek = clampNumber(toNonNegativeInteger(streak.startWeek), 0, SCENARIO_WEEKS - 1);
-		const length = toNonNegativeInteger(streak.length);
-		const streakCount = toNonNegativeInteger(streak.count ?? defaultCount);
+	addHorizontalStreak(counts, { day: 1, startWeek: 2, length: 10, count: 6 });
+	addHorizontalStreak(counts, { day: 3, startWeek: 18, length: 12, count: 10 });
+	addHorizontalStreak(counts, { day: 5, startWeek: 38, length: 10, count: 14 });
+	addHorizontalStreak(counts, { day: 0, startWeek: 43, length: 6, count: 4 });
+	addHorizontalStreak(counts, { day: 6, startWeek: 43, length: 6, count: 4 });
 
-		for (let week = startWeek; week < Math.min(SCENARIO_WEEKS, startWeek + length); week++) {
-			counts[week][day] = streakCount;
-		}
-	}
+	addVerticalBlock(counts, { startWeek: 8, length: 2, startDay: 1, endDay: 5, count: 8 });
+	addVerticalBlock(counts, { startWeek: 27, length: 1, startDay: 0, endDay: 6, count: 12 });
+	addVerticalBlock(counts, { startWeek: 49, length: 1, startDay: 2, endDay: 6, count: 16 });
+
+	addDiagonalStreak(counts, { startWeek: 5, startDay: 0, length: 9, count: 7 });
+	addDiagonalStreak(counts, { startWeek: 30, startDay: 6, length: 8, count: 11, direction: -1 });
 
 	return counts;
 };
 
+const addHorizontalStreak = (
+	counts: number[][],
+	{ day, startWeek, length, count }: { day: number; startWeek: number; length: number; count: number }
+) => {
+	const normalizedDay = clampNumber(toNonNegativeInteger(day), 0, SCENARIO_DAYS - 1);
+	const normalizedStartWeek = clampNumber(toNonNegativeInteger(startWeek), 0, SCENARIO_WEEKS - 1);
+	const normalizedLength = toNonNegativeInteger(length);
+	const normalizedCount = toNonNegativeInteger(count);
+
+	for (let week = normalizedStartWeek; week < Math.min(SCENARIO_WEEKS, normalizedStartWeek + normalizedLength); week++) {
+		counts[week][normalizedDay] = Math.max(counts[week][normalizedDay], normalizedCount);
+	}
+};
+
+const addVerticalBlock = (
+	counts: number[][],
+	{ startWeek, length, startDay, endDay, count }: { startWeek: number; length: number; startDay: number; endDay: number; count: number }
+) => {
+	const normalizedStartWeek = clampNumber(toNonNegativeInteger(startWeek), 0, SCENARIO_WEEKS - 1);
+	const normalizedLength = toNonNegativeInteger(length);
+	const normalizedStartDay = clampNumber(toNonNegativeInteger(startDay), 0, SCENARIO_DAYS - 1);
+	const normalizedEndDay = clampNumber(toNonNegativeInteger(endDay), normalizedStartDay, SCENARIO_DAYS - 1);
+	const normalizedCount = toNonNegativeInteger(count);
+
+	for (let week = normalizedStartWeek; week < Math.min(SCENARIO_WEEKS, normalizedStartWeek + normalizedLength); week++) {
+		for (let day = normalizedStartDay; day <= normalizedEndDay; day++) {
+			counts[week][day] = Math.max(counts[week][day], normalizedCount);
+		}
+	}
+};
+
+const addDiagonalStreak = (
+	counts: number[][],
+	{
+		startWeek,
+		startDay,
+		length,
+		count,
+		direction = 1
+	}: { startWeek: number; startDay: number; length: number; count: number; direction?: 1 | -1 }
+) => {
+	const normalizedStartWeek = clampNumber(toNonNegativeInteger(startWeek), 0, SCENARIO_WEEKS - 1);
+	const normalizedStartDay = clampNumber(toNonNegativeInteger(startDay), 0, SCENARIO_DAYS - 1);
+	const normalizedLength = toNonNegativeInteger(length);
+	const normalizedCount = toNonNegativeInteger(count);
+
+	for (let offset = 0; offset < normalizedLength; offset++) {
+		const week = normalizedStartWeek + offset;
+		const day = normalizedStartDay + offset * direction;
+
+		if (week >= SCENARIO_WEEKS || day < 0 || day >= SCENARIO_DAYS) {
+			continue;
+		}
+
+		counts[week][day] = Math.max(counts[week][day], normalizedCount);
+	}
+};
+
 const countsToContributions = (counts: number[][]): Contribution[] => {
 	const endDate = truncateToUTCDate(new Date());
+	endDate.setUTCDate(endDate.getUTCDate() + (SCENARIO_DAYS - 1 - endDate.getUTCDay()));
+
 	const startDate = new Date(endDate);
 	startDate.setUTCDate(endDate.getUTCDate() - 365);
 	startDate.setUTCDate(startDate.getUTCDate() - startDate.getUTCDay());
@@ -136,8 +184,6 @@ const countsToContributions = (counts: number[][]): Contribution[] => {
 		for (let day = 0; day < SCENARIO_DAYS; day++) {
 			const date = new Date(startDate);
 			date.setUTCDate(startDate.getUTCDate() + week * SCENARIO_DAYS + day);
-
-			if (date > endDate) continue;
 
 			const count = counts[week][day];
 			contributions.push({
