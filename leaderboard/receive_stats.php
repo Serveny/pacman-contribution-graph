@@ -4,7 +4,7 @@
  * Receives game stats from the GitHub Action and stores them in SQLite.
  *
  * Expected POST body (JSON):
- *   { username, platform, score, steps, ghosts_eaten }
+ *   { username, platform, game_type, score, steps, ghosts_eaten }
  */
 
 header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
@@ -40,7 +40,7 @@ if (!$data) {
     exit;
 }
 
-$required = ['username', 'platform', 'score', 'steps', 'ghosts_eaten'];
+$required = ['username', 'platform', 'game_type', 'score', 'steps', 'ghosts_eaten'];
 foreach ($required as $field) {
     if (!isset($data[$field])) {
         http_response_code(400);
@@ -51,10 +51,13 @@ foreach ($required as $field) {
 
 $username = trim((string) $data['username']);
 $platform = trim((string) $data['platform']);
+$gameType = trim((string) $data['game_type']);
 $score = (int) $data['score'];
 $steps = (int) $data['steps'];
 $ghostsEaten = (int) $data['ghosts_eaten'];
 $timestamp = time();
+
+$allowedGameTypes = ['pacman', 'breakout', 'galaga', 'puzzle-bobble', 'bomberman'];
 
 // Sanity checks
 if (strlen($username) < 1 || strlen($username) > 100) {
@@ -62,10 +65,13 @@ if (strlen($username) < 1 || strlen($username) > 100) {
     echo json_encode(['error' => 'Invalid username']);
     exit;
 }
-if (!in_array($platform, ['github', 'gitlab'])) {
+if (!in_array($platform, ['github', 'gitlab'], true)) {
     http_response_code(400);
     echo json_encode(['error' => 'Invalid platform']);
     exit;
+}
+if (!in_array($gameType, $allowedGameTypes, true)) {
+    $gameType = 'pacman';
 }
 if ($score < 0 || $steps < 0 || $ghostsEaten < 0) {
     http_response_code(400);
@@ -87,21 +93,23 @@ try {
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             username     TEXT    NOT NULL,
             platform     TEXT    NOT NULL,
+            game_type    TEXT    NOT NULL,
             score        INTEGER NOT NULL,
             steps        INTEGER NOT NULL,
             ghosts_eaten INTEGER NOT NULL,
             timestamp    INTEGER NOT NULL,
-            UNIQUE(username, platform)
+            UNIQUE(username, platform, game_type)
         );
         CREATE INDEX IF NOT EXISTS idx_timestamp ON stats(timestamp);
-        CREATE INDEX IF NOT EXISTS idx_username  ON stats(username);
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_user_platform ON stats(username, platform);
+        CREATE INDEX IF NOT EXISTS idx_username ON stats(username);
+        CREATE INDEX IF NOT EXISTS idx_game_type ON stats(game_type);
+        CREATE INDEX IF NOT EXISTS idx_game_type_timestamp ON stats(game_type, timestamp);
     ');
 
     $stmt = $pdo->prepare('
-        INSERT INTO stats (username, platform, score, steps, ghosts_eaten, timestamp)
-        VALUES (:username, :platform, :score, :steps, :ghosts_eaten, :timestamp)
-        ON CONFLICT(username, platform) DO UPDATE SET
+        INSERT INTO stats (username, platform, game_type, score, steps, ghosts_eaten, timestamp)
+        VALUES (:username, :platform, :game_type, :score, :steps, :ghosts_eaten, :timestamp)
+        ON CONFLICT(username, platform, game_type) DO UPDATE SET
             score        = excluded.score,
             steps        = excluded.steps,
             ghosts_eaten = excluded.ghosts_eaten,
@@ -110,6 +118,7 @@ try {
     $stmt->execute([
         ':username' => $username,
         ':platform' => $platform,
+        ':game_type' => $gameType,
         ':score' => $score,
         ':steps' => $steps,
         ':ghosts_eaten' => $ghostsEaten,

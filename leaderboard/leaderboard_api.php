@@ -4,10 +4,10 @@
  * Returns the top-10 players for each leaderboard category,
  * considering only entries submitted in the last 3 days.
  *
- * GET /leaderboard_api.php
- * Response: { top_score: [...], fastest: [...], ghost_hunter: [...] }
+ * GET /leaderboard_api.php?game_type=pacman
+ * Response: { top_score: [...], fastest: [...], ghost_hunter: [...], game_type: 'pacman' }
  *
- * Each entry has: { rank, username, platform, value, date }
+ * Each entry has: { rank, username, platform, game_type, value, date }
  */
 
 header('Content-Type: application/json');
@@ -26,6 +26,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 $dbPath = __DIR__ . '/pacman_stats.sqlite';
+$allowedGameTypes = ['pacman', 'breakout', 'galaga', 'puzzle-bobble', 'bomberman'];
+$rawGameType = $_GET['game_type'] ?? $_GET['game'] ?? null;
+$gameType = 'pacman';
+$isAllGameTypes = false;
+
+if ($rawGameType !== null) {
+    $parsedGameType = strtolower(trim((string) $rawGameType));
+    if ($parsedGameType === '') {
+        $isAllGameTypes = true;
+    } elseif (in_array($parsedGameType, $allowedGameTypes, true)) {
+        $gameType = $parsedGameType;
+    }
+}
 
 if (!file_exists($dbPath)) {
     // Return empty leaderboard if no data yet
@@ -33,8 +46,10 @@ if (!file_exists($dbPath)) {
         'top_score' => [],
         'fastest' => [],
         'ghost_hunter' => [],
+        'game_type' => $isAllGameTypes ? '' : $gameType,
         'generated_at' => date('c'),
-    ]);
+        'window_days' => 3,
+    ], JSON_PRETTY_PRINT);
     exit;
 }
 
@@ -48,44 +63,52 @@ try {
     // Helper: build a top-10 for a given metric
     // For top_score / ghost_hunter  → MAX is best
     // For fastest                   → MIN steps is best (but only complete runs, steps > 0)
-    $buildTop = function (string $metric, string $order, int $limit = 10) use ($pdo, $cutoff): array {
-        // Get best value per username within window, then sort globally
-        $stmt = $pdo->prepare("
+    $buildTop = function (string $metric, string $direction, int $limit = 10) use ($pdo, $cutoff, $gameType, $isAllGameTypes): array {
+        $query = '
             SELECT
                 username,
                 platform,
-                {$metric} AS value,
+                game_type,
+                ' . $metric . ' AS value,
                 timestamp
             FROM stats
             WHERE timestamp >= :cutoff
+              ' . ($isAllGameTypes ? '' : 'AND game_type = :game_type') . '
               AND steps > 0
-            GROUP BY username
-            HAVING value = {$order}({$metric})
-            ORDER BY value " . ($order === 'MAX' ? 'DESC' : 'ASC') . "
+            ORDER BY value ' . $direction . ', timestamp DESC, username ASC
             LIMIT :limit
-        ");
+        ';
+
+        $stmt = $pdo->prepare($query);
         $stmt->bindValue(':cutoff', $cutoff, PDO::PARAM_INT);
+        if (!$isAllGameTypes) {
+            $stmt->bindValue(':game_type', $gameType, PDO::PARAM_STR);
+        }
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->execute();
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $result = [];
-        foreach ($rows as $i => $row) {
+
+        foreach ($rows as $index => $row) {
             $result[] = [
-                'rank' => $i + 1,
+                'rank' => $index + 1,
                 'username' => $row['username'],
                 'platform' => $row['platform'],
+                'game_type' => $row['game_type'],
                 'value' => (int) $row['value'],
                 'date' => date('Y-m-d', (int) $row['timestamp']),
             ];
         }
+
         return $result;
     };
 
     $response = [
-        'top_score' => $buildTop('score', 'MAX'),
-        'fastest' => $buildTop('steps', 'MIN'),
-        'ghost_hunter' => $buildTop('ghosts_eaten', 'MAX'),
+        'top_score' => $buildTop('score', 'DESC'),
+        'fastest' => $buildTop('steps', 'ASC'),
+        'ghost_hunter' => $buildTop('ghosts_eaten', 'DESC'),
+        'game_type' => $isAllGameTypes ? '' : $gameType,
         'generated_at' => date('c'),
         'window_days' => 3,
     ];

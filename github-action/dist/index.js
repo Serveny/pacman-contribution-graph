@@ -26853,7 +26853,7 @@ var external_path_ = __nccwpck_require__(6928);
 
 const STATS_ENDPOINT = 'https://elec.abozanona.me/receive_stats.php';
 
-const reportStats = async (username, platform, stats) => {
+const reportStats = async (username, platform, gameType, stats) => {
 	try {
 		await fetch(STATS_ENDPOINT, {
 			method: 'POST',
@@ -26861,6 +26861,7 @@ const reportStats = async (username, platform, stats) => {
 			body: JSON.stringify({
 				username,
 				platform,
+				game_type: gameType,
 				score: stats.totalScore,
 				steps: stats.steps,
 				ghosts_eaten: stats.ghostsEaten
@@ -26957,7 +26958,7 @@ const generateSvg = async (game, userName, githubToken, theme, playerStyle) => {
 				steps: Math.min(...allStats.map((s) => s.steps)),
 				ghostsEaten: Math.max(...allStats.map((s) => s.ghostsEaten ?? 0))
 			};
-			await reportStats(userName, 'github', bestStats);
+			await reportStats(userName, 'github', selectedGames[0] || 'pacman', bestStats);
 		}
 	} catch (e) {
 		core.setFailed(`Action failed with "${e.message}"`);
