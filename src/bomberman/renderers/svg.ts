@@ -23,8 +23,6 @@ type BlastSpriteKind = 'center' | 'segment' | 'end';
 type BlastDirection = BombermanPlayer['direction'];
 type BlastAnimationContext = {
 	explosion: BombermanExplosionEvent;
-	totalFrames: number;
-	totalDurationMs: number;
 };
 
 const PLAYER_SPRITE_CHAINS: Record<BombermanPlayer['id'], Record<BombermanPlayer['direction'], SpriteCycle>> = {
@@ -170,12 +168,12 @@ const generateAnimatedSVG = (store: BombermanStore): string => {
 	for (const bombEvent of collectBombs(store)) {
 		const opacityAnim = buildVisibilityAnimation(totalFrames, bombEvent.startFrame, bombEvent.endFrameExclusive);
 		const initialOpacity = bombEvent.startFrame === 0 ? '1' : '0';
-		svg += `<g id="bomb-${bombEvent.bomb.id}" opacity="${initialOpacity}" transform="translate(${centerPosition(bombEvent.bomb.x, bombEvent.bomb.y)})" style="will-change: opacity;">`;
+		svg += `<g id="bomb-${bombEvent.bomb.id}" opacity="${initialOpacity}" transform="translate(${centerPosition(bombEvent.bomb.x, bombEvent.bomb.y)})">`;
 		if (opacityAnim) {
 			svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
 				keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
 		}
-		svg += `<use x="${BOMBERMAN_SVG.BOMB_X}" y="${BOMBERMAN_SVG.BOMB_Y}" width="${BOMBERMAN_SVG.BOMB_WIDTH}" height="${BOMBERMAN_SVG.BOMB_HEIGHT}" href="${getDefaultBombRef()}" style="will-change: transform;">
+		svg += `<use x="${BOMBERMAN_SVG.BOMB_X}" y="${BOMBERMAN_SVG.BOMB_Y}" width="${BOMBERMAN_SVG.BOMB_WIDTH}" height="${BOMBERMAN_SVG.BOMB_HEIGHT}" href="${getDefaultBombRef()}">
 			<animateTransform attributeName="transform" type="scale" calcMode="linear" dur="${BOMBERMAN_SVG.BOMB_PULSE_DURATION_MS}ms" repeatCount="indefinite"
 				keyTimes="0;0.5;1" values="1;${BOMBERMAN_SVG.BOMB_PULSE_SCALE};1"/>
 		</use></g>`;
@@ -186,7 +184,7 @@ const generateAnimatedSVG = (store: BombermanStore): string => {
 		const initialOpacity = itemEvent.startFrame === 0 ? '1' : '0';
 		const x = toSvgX(itemEvent.item.x) + (CELL_SIZE - BOMBERMAN_SVG.ITEM_WIDTH) / 2;
 		const y = toSvgY(itemEvent.item.y) + (CELL_SIZE - BOMBERMAN_SVG.ITEM_HEIGHT) / 2;
-		svg += `<use id="item-${itemEvent.item.id}" x="${x}" y="${y}" width="${BOMBERMAN_SVG.ITEM_WIDTH}" height="${BOMBERMAN_SVG.ITEM_HEIGHT}" href="${getItemRef(itemEvent.item.type)}" opacity="${initialOpacity}" style="will-change: opacity;">`;
+		svg += `<use id="item-${itemEvent.item.id}" x="${x}" y="${y}" width="${BOMBERMAN_SVG.ITEM_WIDTH}" height="${BOMBERMAN_SVG.ITEM_HEIGHT}" href="${getItemRef(itemEvent.item.type)}" opacity="${initialOpacity}">`;
 		if (opacityAnim) {
 			svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
 				keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
@@ -196,8 +194,8 @@ const generateAnimatedSVG = (store: BombermanStore): string => {
 
 	for (const explosion of store.explosionEvents) {
 		const opacityAnim = getExplosionOpacityAnimation(store, explosion);
-		svg += `<g opacity="0" style="will-change: opacity;">`;
-		svg += renderExplosionShape({ explosion, totalFrames, totalDurationMs });
+		svg += `<g opacity="0">`;
+		svg += renderExplosionShape({ explosion });
 		if (opacityAnim) {
 			svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
 				keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
@@ -212,7 +210,7 @@ const generateAnimatedSVG = (store: BombermanStore): string => {
 		const positionAnim = buildStepwiseLinearAnimation(positions);
 		const opacityAnim = buildChangingValuesAnimation(opacities);
 		const spriteAnim = buildChangingValuesAnimation(spriteRefs);
-		svg += `<use id="player-${player.id}" x="${-BOMBERMAN_SVG.PLAYER_SPRITE_WIDTH / 2}" y="${-BOMBERMAN_SVG.PLAYER_SPRITE_HEIGHT + CELL_SIZE / 2}" width="${BOMBERMAN_SVG.PLAYER_SPRITE_WIDTH}" height="${BOMBERMAN_SVG.PLAYER_SPRITE_HEIGHT}" href="${spriteRefs[0] ?? getDefaultPlayerRef(player.id)}" opacity="${opacities[0] ?? '0'}" transform="translate(${positions[0] ?? '0 0'})" style="will-change: transform, opacity;">`;
+		svg += `<use id="player-${player.id}" x="${-BOMBERMAN_SVG.PLAYER_SPRITE_WIDTH / 2}" y="${-BOMBERMAN_SVG.PLAYER_SPRITE_HEIGHT + CELL_SIZE / 2}" width="${BOMBERMAN_SVG.PLAYER_SPRITE_WIDTH}" height="${BOMBERMAN_SVG.PLAYER_SPRITE_HEIGHT}" href="${spriteRefs[0] ?? getDefaultPlayerRef(player.id)}" opacity="${opacities[0] ?? '0'}" transform="translate(${positions[0] ?? '0 0'})">`;
 		if (spriteAnim) {
 			svg += `<animate attributeName="href" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
 				keyTimes="${spriteAnim.keyTimes}" values="${spriteAnim.values}"/>`;
@@ -229,8 +227,15 @@ const generateAnimatedSVG = (store: BombermanStore): string => {
 	}
 
 	svg += '</svg>';
-	return svg;
+	return minifySvg(svg);
 };
+
+const minifySvg = (svg: string): string =>
+	svg
+		.replace(/>\s+</g, '><')
+		.replace(/\s{2,}/g, ' ')
+		.replace(/\s\/>/g, '/>')
+		.trim();
 
 const getCellAnimationData = (
 	store: BombermanStore,
@@ -412,13 +417,13 @@ const getExplosionArmPosition = (explosion: BombermanExplosionEvent, direction: 
 const renderBlastSprite = (kind: BlastSpriteKind, x: number, y: number, direction: BlastDirection, animation: BlastAnimationContext) => {
 	const placement = getBlastPlacement(kind, x, y, direction);
 	const rotation = placement.degrees === 0 ? '' : ` transform="rotate(${placement.degrees} ${placement.centerX} ${placement.centerY})"`;
-	return `<use x="${placement.x}" y="${placement.y}" width="${placement.width}" height="${placement.height}" href="${toSpriteRef(BLAST_SPRITES[kind][0])}"${rotation}>${getBlastSpriteAnimation(kind, animation)}</use>`;
+	return `<use x="${placement.x}" y="${placement.y}" width="${placement.width}" height="${placement.height}" href="${getAnimatedBlastRef(kind, animation.explosion)}"${rotation}/>`;
 };
 
 const renderBlastArmBody = (animation: BlastAnimationContext, direction: BlastDirection, length: number) => {
 	const placement = getBlastArmBodyPlacement(animation.explosion, direction, length);
 	const rotation = placement.degrees === 0 ? '' : ` transform="rotate(${placement.degrees} ${placement.centerX} ${placement.centerY})"`;
-	return `<use x="${placement.x}" y="${placement.y}" width="${placement.width}" height="${placement.height}" href="${toSpriteRef(BLAST_SPRITES.segment[0])}"${rotation}>${getBlastSpriteAnimation('segment', animation)}</use>`;
+	return `<use x="${placement.x}" y="${placement.y}" width="${placement.width}" height="${placement.height}" href="${getAnimatedBlastRef('segment', animation.explosion)}"${rotation}/>`;
 };
 
 const getBlastPlacement = (kind: BlastSpriteKind, x: number, y: number, direction: BlastDirection) => {
@@ -522,18 +527,6 @@ const getBlastArmBodyPlacement = (explosion: BombermanExplosionEvent, direction:
 	};
 };
 
-const getBlastSpriteAnimation = (kind: BlastSpriteKind, { explosion, totalFrames, totalDurationMs }: BlastAnimationContext) => {
-	const frameRefs = BLAST_SPRITES[kind].map(toSpriteRef);
-	const keyTimes = [
-		0,
-		...frameRefs.map((_, frameOffset) => frameToKeyTime(explosion.frameIndex + frameOffset, totalFrames)),
-		frameToKeyTime(explosion.frameIndex + explosion.remainingFrames, totalFrames),
-		1
-	];
-	const values = [frameRefs[0], ...frameRefs, frameRefs[frameRefs.length - 1], frameRefs[frameRefs.length - 1]];
-	return `<animate attributeName="href" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite" keyTimes="${keyTimes.join(';')}" values="${values.join(';')}"/>`;
-};
-
 const getExplosionArmLengths = (explosion: BombermanExplosionEvent) => {
 	let left = 0;
 	let right = 0;
@@ -591,6 +584,12 @@ const indexCellEvents = (events: BombermanCellEvent[]) => {
 
 const cellEventKey = (x: number, y: number) => `${x}:${y}`;
 
+const getAnimatedBlastRef = (kind: BlastSpriteKind, explosion: BombermanExplosionEvent) => {
+	const frameCount = BLAST_SPRITES[kind].length;
+	const phase = (frameCount - (explosion.frameIndex % frameCount)) % frameCount;
+	return `#bm-blast-${kind}-cycle-${phase}`;
+};
+
 const buildSpriteDefs = () => {
 	const symbols = new Map<string, SpriteSymbol>();
 	for (const playerChains of Object.values(PLAYER_SPRITE_CHAINS)) {
@@ -607,7 +606,7 @@ const buildSpriteDefs = () => {
 	}
 	for (const sprite of Object.values(ITEM_SPRITES)) symbols.set(sprite.id, sprite);
 
-	const defs = Array.from(symbols.entries())
+	const spriteDefs = Array.from(symbols.entries())
 		.map(
 			([
 				id,
@@ -618,8 +617,25 @@ const buildSpriteDefs = () => {
 		)
 		.join('');
 
-	return `<defs>${defs}</defs>`;
+	return `<defs>${spriteDefs}${buildAnimatedBlastDefs()}</defs>`;
 };
+
+const buildAnimatedBlastDefs = () =>
+	(Object.entries(BLAST_SPRITES) as [BlastSpriteKind, SpriteCycle][])
+		.flatMap(([kind, cycle]) => cycle.map((_, phase) => buildAnimatedBlastDef(kind, cycle, phase)))
+		.join('');
+
+const buildAnimatedBlastDef = (kind: BlastSpriteKind, cycle: SpriteCycle, phase: number) => {
+	const firstFrame = cycle[0].frame;
+	const keyTimes = cycle.map((_, index) => Number((index / cycle.length).toFixed(BOMBERMAN_SVG.PRECISION)));
+	const frameRefs = rotateValues(cycle.map(toSpriteRef), phase);
+	const values = [...frameRefs, frameRefs[0]];
+	return `<symbol id="bm-blast-${kind}-cycle-${phase}" viewBox="0 0 ${firstFrame.width} ${firstFrame.height}" overflow="visible" preserveAspectRatio="none"><use width="${firstFrame.width}" height="${firstFrame.height}" href="${frameRefs[0]}"><animate attributeName="href" calcMode="discrete" dur="${getBlastCycleDurationMs(cycle)}ms" repeatCount="indefinite" keyTimes="${[...keyTimes, 1].join(';')}" values="${values.join(';')}"/></use></symbol>`;
+};
+
+const rotateValues = <T>(values: readonly T[], offset: number): T[] => [...values.slice(offset), ...values.slice(0, offset)];
+
+const getBlastCycleDurationMs = (cycle: SpriteCycle) => (cycle.length * DELTA_TIME) / BOMBERMAN_SVG.DURATION_SPEED_DIVISOR;
 
 const toSpriteRef = (sprite: SpriteSymbol) => `#${sprite.id}`;
 
