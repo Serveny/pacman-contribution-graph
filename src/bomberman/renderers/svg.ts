@@ -435,53 +435,52 @@ const getBlastPlacement = (kind: BlastSpriteKind, x: number, y: number, directio
 	}
 
 	const axisLength = CELL_SIZE;
+	const thickness = BOMBERMAN_SVG.BLAST_THICKNESS;
 	const cellX = toSvgX(x);
 	const cellY = toSvgY(y);
+	const cellCenterX = cellX + CELL_SIZE / 2;
+	const cellCenterY = cellY + CELL_SIZE / 2;
 
 	switch (direction) {
 		case 'left':
 			return {
 				x: cellX,
-				y: cellY,
+				y: cellCenterY - thickness / 2,
 				width: axisLength,
-				height: CELL_SIZE,
+				height: thickness,
 				centerX: cellX + axisLength / 2,
-				centerY: cellY + CELL_SIZE / 2,
+				centerY: cellCenterY,
 				degrees: 180
 			};
 		case 'right':
 			return {
 				x: cellX,
-				y: cellY,
+				y: cellCenterY - thickness / 2,
 				width: axisLength,
-				height: CELL_SIZE,
+				height: thickness,
 				centerX: cellX + axisLength / 2,
-				centerY: cellY + CELL_SIZE / 2,
+				centerY: cellCenterY,
 				degrees: 0
 			};
 		case 'up': {
-			const centerX = cellX + CELL_SIZE / 2;
-			const centerY = cellY + axisLength / 2;
 			return {
-				x: centerX - axisLength / 2,
-				y: centerY - CELL_SIZE / 2,
+				x: cellCenterX - axisLength / 2,
+				y: cellCenterY - thickness / 2,
 				width: axisLength,
-				height: CELL_SIZE,
-				centerX,
-				centerY,
+				height: thickness,
+				centerX: cellCenterX,
+				centerY: cellCenterY,
 				degrees: -90
 			};
 		}
 		case 'down': {
-			const centerX = cellX + CELL_SIZE / 2;
-			const centerY = cellY + axisLength / 2;
 			return {
-				x: centerX - axisLength / 2,
-				y: centerY - CELL_SIZE / 2,
+				x: cellCenterX - axisLength / 2,
+				y: cellCenterY - thickness / 2,
 				width: axisLength,
-				height: CELL_SIZE,
-				centerX,
-				centerY,
+				height: thickness,
+				centerX: cellCenterX,
+				centerY: cellCenterY,
 				degrees: 90
 			};
 		}
@@ -494,15 +493,16 @@ const getBlastArmBodyPlacement = (explosion: BombermanExplosionEvent, direction:
 	const end = getExplosionArmPosition(explosion, direction, length);
 	const endCenterX = toSvgX(end.x) + CELL_SIZE / 2;
 	const endCenterY = toSvgY(end.y) + CELL_SIZE / 2;
+	const thickness = BOMBERMAN_SVG.BLAST_THICKNESS;
 
 	if (direction === 'left' || direction === 'right') {
 		const left = Math.min(originCenterX, endCenterX);
 		const right = Math.max(originCenterX, endCenterX);
 		return {
 			x: left,
-			y: originCenterY - CELL_SIZE / 2,
+			y: originCenterY - thickness / 2,
 			width: right - left,
-			height: CELL_SIZE,
+			height: thickness,
 			centerX: (left + right) / 2,
 			centerY: originCenterY,
 			degrees: direction === 'left' ? 180 : 0
@@ -513,9 +513,9 @@ const getBlastArmBodyPlacement = (explosion: BombermanExplosionEvent, direction:
 	const bottom = Math.max(originCenterY, endCenterY);
 	return {
 		x: originCenterX - (bottom - top) / 2,
-		y: (top + bottom) / 2 - CELL_SIZE / 2,
+		y: (top + bottom) / 2 - thickness / 2,
 		width: bottom - top,
-		height: CELL_SIZE,
+		height: thickness,
 		centerX: originCenterX,
 		centerY: (top + bottom) / 2,
 		degrees: direction === 'up' ? -90 : 90
