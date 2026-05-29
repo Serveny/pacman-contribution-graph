@@ -8,6 +8,7 @@ import {
 	GRID_HEIGHT,
 	GRID_WIDTH
 } from './constants';
+import { destroyVisibleItemAt, getPlayerBlastRange, hasVisibleItemAt, revealItemAt } from './items';
 
 export type DirectionVector = BombermanPosition & { direction: BombermanDirection };
 
@@ -38,13 +39,28 @@ export const bombAt = (store: BombermanStore, { x, y }: BombermanPosition) =>
 export const isPassableCell = (store: BombermanStore, position: BombermanPosition) =>
 	isEmptyCell(store, position) && !bombAt(store, position);
 
-export const getBlastCells = (position: BombermanPosition): BombermanPosition[] => [
-	position,
-	...DIRECTIONS.map((direction) => ({
-		x: position.x + direction.x * BOMBERMAN_BLAST_RANGE,
-		y: position.y + direction.y * BOMBERMAN_BLAST_RANGE
-	})).filter(inBounds)
-];
+export const getBlastCells = (
+	store: BombermanStore,
+	position: BombermanPosition,
+	blastRange = BOMBERMAN_BLAST_RANGE
+): BombermanPosition[] => {
+	const cells: BombermanPosition[] = [position];
+
+	for (const direction of DIRECTIONS) {
+		for (let distance = 1; distance <= blastRange; distance++) {
+			const cell = {
+				x: position.x + direction.x * distance,
+				y: position.y + direction.y * distance
+			};
+			if (!inBounds(cell)) break;
+
+			cells.push(cell);
+			if (isContributionCell(store, cell)) break;
+		}
+	}
+
+	return cells;
+};
 
 export const isActiveExplosionCell = (store: BombermanStore, position: BombermanPosition, ownerId?: BombermanPlayer['id']) =>
 	store.activeExplosions.some(
@@ -57,7 +73,7 @@ export const bombsThreateningAt = (store: BombermanStore, position: BombermanPos
 		(bomb) =>
 			!bomb.exploded &&
 			(ownerId === undefined || bomb.ownerId === ownerId) &&
-			getBlastCells(bomb).some((cell) => samePosition(cell, position))
+			getBlastCells(store, bomb, bomb.blastRange).some((cell) => samePosition(cell, position))
 	);
 
 export const isInOwnFutureBlast = (store: BombermanStore, player: BombermanPlayer, position: BombermanPosition) =>
@@ -133,16 +149,19 @@ export const canPlaceBomb = (store: BombermanStore, player: BombermanPlayer) =>
 	!bombAt(store, player) &&
 	!store.bombs.some((bomb) => !bomb.exploded && bomb.ownerId === player.id);
 
-export const bombWouldHitContribution = (store: BombermanStore, position: BombermanPosition) =>
-	getBlastCells(position).some((cell) => isContributionCell(store, cell));
+export const bombWouldHitContribution = (store: BombermanStore, position: BombermanPosition, blastRange = BOMBERMAN_BLAST_RANGE) =>
+	getBlastCells(store, position, blastRange).some((cell) => isContributionCell(store, cell));
+
+export const bombWouldHitVisibleItem = (store: BombermanStore, position: BombermanPosition, blastRange = BOMBERMAN_BLAST_RANGE) =>
+	getBlastCells(store, position, blastRange).some((cell) => hasVisibleItemAt(store, cell));
 
 export const bombWouldHitOpponent = (store: BombermanStore, player: BombermanPlayer) => {
 	const opponent = store.players.find((candidate) => candidate.id !== player.id && candidate.alive);
-	return Boolean(opponent && getBlastCells(player).some((cell) => samePosition(cell, opponent)));
+	return Boolean(opponent && getBlastCells(store, player, getPlayerBlastRange(player)).some((cell) => samePosition(cell, opponent)));
 };
 
 export const bombWouldHitTarget = (store: BombermanStore, player: BombermanPlayer) =>
-	bombWouldHitContribution(store, player) || bombWouldHitOpponent(store, player);
+	bombWouldHitContribution(store, player, getPlayerBlastRange(player)) || bombWouldHitOpponent(store, player);
 
 export const placeBomb = (store: BombermanStore, player: BombermanPlayer) => {
 	if (!canPlaceBomb(store, player)) return;
@@ -154,6 +173,7 @@ export const placeBomb = (store: BombermanStore, player: BombermanPlayer) => {
 		y: player.y,
 		timer: BOMBERMAN_BOMB_FUSE_FRAMES,
 		exploded: false,
+		blastRange: getPlayerBlastRange(player),
 		sprite: BOMBERMAN_SPRITE_SETS.explosions.bombs.fuse0.data
 	});
 	player.bombsPlaced++;
@@ -171,6 +191,7 @@ export const clearContributionCell = (store: BombermanStore, position: Bomberman
 
 	const owner = store.players.find((player) => player.id === ownerId);
 	if (owner) owner.cellsDestroyed++;
+	revealItemAt(store, position);
 
 	store.cellEvents.push({
 		frameIndex: store.gameHistory.length,
@@ -187,18 +208,15 @@ export const explodeBomb = (store: BombermanStore, bomb: BombermanBomb) => {
 	if (bomb.exploded) return;
 
 	bomb.exploded = true;
-	const affectedCells: BombermanPosition[] = [{ x: bomb.x, y: bomb.y }];
+	const affectedCells = getBlastCells(store, bomb, bomb.blastRange);
 	const hitPlayerIds: BombermanPlayer['id'][] = [];
 
-	for (const direction of DIRECTIONS) {
-		const position = {
-			x: bomb.x + direction.x * BOMBERMAN_BLAST_RANGE,
-			y: bomb.y + direction.y * BOMBERMAN_BLAST_RANGE
-		};
-
-		if (!inBounds(position)) continue;
-		affectedCells.push(position);
-		clearContributionCell(store, position, bomb.ownerId);
+	for (const position of affectedCells) {
+		if (isContributionCell(store, position)) {
+			clearContributionCell(store, position, bomb.ownerId);
+		} else {
+			destroyVisibleItemAt(store, position);
+		}
 
 		const chainedBomb = bombAt(store, position);
 		if (chainedBomb) explodeBomb(store, chainedBomb);
@@ -217,6 +235,7 @@ export const explodeBomb = (store: BombermanStore, bomb: BombermanBomb) => {
 		ownerId: bomb.ownerId,
 		x: bomb.x,
 		y: bomb.y,
+		blastRange: bomb.blastRange,
 		remainingFrames: BOMBERMAN_EXPLOSION_DURATION_FRAMES,
 		affectedCells,
 		hitPlayerIds,

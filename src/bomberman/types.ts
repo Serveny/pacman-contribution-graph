@@ -4,9 +4,11 @@ export interface BombermanStore extends BaseStore {
 	frameCount: number;
 	gameInterval: number;
 	nextBombId: number;
+	nextItemId: number;
 	players: BombermanPlayer[];
 	bombs: BombermanBomb[];
 	activeExplosions: BombermanExplosion[];
+	items: BombermanItem[];
 	gameHistory: BombermanSnapshot[];
 	initialColors: string[][];
 	cellEvents: BombermanCellEvent[];
@@ -23,6 +25,7 @@ export type BombermanPlayerId = 1 | 2;
 export type BombermanDirection = 'up' | 'down' | 'left' | 'right';
 export type BombermanAttackSide = 'left' | 'right';
 export type BombermanRoutePreference = 'horizontal-first' | 'vertical-first';
+export type BombermanItemType = 'blast-range';
 
 export interface BombermanPosition {
 	x: number;
@@ -36,6 +39,7 @@ export interface BombermanPlayer extends BombermanPosition {
 	direction: BombermanDirection;
 	bombsPlaced: number;
 	cellsDestroyed: number;
+	blastRangeBonus: number;
 	sprite: string;
 	attackSide?: BombermanAttackSide;
 	routePreference?: BombermanRoutePreference;
@@ -46,6 +50,7 @@ export interface BombermanBomb extends BombermanPosition {
 	ownerId: BombermanPlayerId;
 	timer: number;
 	exploded: boolean;
+	blastRange: number;
 	sprite: string;
 }
 
@@ -54,9 +59,19 @@ export interface BombermanExplosion {
 	ownerId: BombermanPlayerId;
 	x: number;
 	y: number;
+	blastRange: number;
 	remainingFrames: number;
 	affectedCells: BombermanPosition[];
 	hitPlayerIds: BombermanPlayerId[];
+	sprite: string;
+}
+
+export interface BombermanItem extends BombermanPosition {
+	id: number;
+	type: BombermanItemType;
+	hidden: boolean;
+	collected: boolean;
+	destroyed: boolean;
 	sprite: string;
 }
 
@@ -73,4 +88,5 @@ export interface BombermanSnapshot {
 	players: BombermanPlayer[];
 	bombs: BombermanBomb[];
 	explosions: BombermanExplosion[];
+	items: BombermanItem[];
 }

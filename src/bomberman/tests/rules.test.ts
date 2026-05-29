@@ -2,9 +2,10 @@ import { GAME_THEMES, GRID_HEIGHT, GRID_WIDTH } from '../../shared/constants';
 import { GridCell } from '../../shared/types';
 import { BombermanStore } from '../types';
 import { Game } from '../core/game';
-import { movePlayer } from '../core/ai';
+import { movePlayer, shouldPlaceBomb } from '../core/ai';
+import { collectVisibleItemsAt } from '../core/items';
 import { sortPathOptions } from '../core/pathfinding';
-import { clearSpawnArea, killPlayersInActiveExplosions } from '../core/rules';
+import { clearContributionCell, clearSpawnArea, explodeBomb, killPlayersInActiveExplosions, placeBomb } from '../core/rules';
 
 const createCell = (commitsCount: number): GridCell => ({
 	commitsCount,
@@ -19,9 +20,11 @@ const createStore = (): BombermanStore => ({
 	monthLabels: [],
 	gameInterval: 0,
 	nextBombId: 0,
+	nextItemId: 0,
 	players: [],
 	bombs: [],
 	activeExplosions: [],
+	items: [],
 	gameHistory: [],
 	initialColors: [],
 	cellEvents: [],
@@ -101,6 +104,7 @@ describe('Bomberman movement AI', () => {
 					direction: 'right',
 					bombsPlaced: 0,
 					cellsDestroyed: 0,
+					blastRangeBonus: 0,
 					sprite: '',
 					routePreference
 				},
@@ -113,6 +117,7 @@ describe('Bomberman movement AI', () => {
 					direction: 'left',
 					bombsPlaced: 0,
 					cellsDestroyed: 0,
+					blastRangeBonus: 0,
 					sprite: ''
 				}
 			];
@@ -170,6 +175,7 @@ describe('Bomberman explosion handling', () => {
 				direction: 'right',
 				bombsPlaced: 0,
 				cellsDestroyed: 0,
+				blastRangeBonus: 0,
 				sprite: ''
 			},
 			{
@@ -181,6 +187,7 @@ describe('Bomberman explosion handling', () => {
 				direction: 'left',
 				bombsPlaced: 0,
 				cellsDestroyed: 0,
+				blastRangeBonus: 0,
 				sprite: ''
 			}
 		];
@@ -190,6 +197,7 @@ describe('Bomberman explosion handling', () => {
 				ownerId: 1,
 				x: 0,
 				y: 0,
+				blastRange: 1,
 				remainingFrames: 2,
 				affectedCells: [
 					{ x: 0, y: 0 },
@@ -220,6 +228,7 @@ describe('Bomberman explosion handling', () => {
 				direction: 'right',
 				bombsPlaced: 0,
 				cellsDestroyed: 0,
+				blastRangeBonus: 0,
 				sprite: ''
 			},
 			{
@@ -231,6 +240,7 @@ describe('Bomberman explosion handling', () => {
 				direction: 'left',
 				bombsPlaced: 0,
 				cellsDestroyed: 0,
+				blastRangeBonus: 0,
 				sprite: ''
 			}
 		];
@@ -240,6 +250,7 @@ describe('Bomberman explosion handling', () => {
 				ownerId: 1,
 				x: 1,
 				y: 0,
+				blastRange: 1,
 				remainingFrames: 2,
 				affectedCells: [{ x: 1, y: 0 }],
 				hitPlayerIds: [],
@@ -250,5 +261,165 @@ describe('Bomberman explosion handling', () => {
 		movePlayer(store, store.players[0]);
 
 		expect(store.players[0]).toMatchObject({ x: 0, y: 0 });
+	});
+
+	it('reveals hidden items when their contribution cell is destroyed and applies blast range on pickup', () => {
+		const store = createStore();
+		store.grid = createEmptyGrid();
+		store.grid[1][0] = createCell(1);
+		store.items = [
+			{
+				id: 0,
+				type: 'blast-range',
+				x: 1,
+				y: 0,
+				hidden: true,
+				collected: false,
+				destroyed: false,
+				sprite: ''
+			}
+		];
+		store.players = [
+			{
+				id: 1,
+				name: 'Bomberman',
+				x: 1,
+				y: 0,
+				alive: true,
+				direction: 'right',
+				bombsPlaced: 0,
+				cellsDestroyed: 0,
+				blastRangeBonus: 0,
+				sprite: ''
+			}
+		];
+
+		clearContributionCell(store, { x: 1, y: 0 }, 1);
+		collectVisibleItemsAt(store, store.players[0]);
+		store.grid[3][0] = createCell(1);
+		placeBomb(store, store.players[0]);
+		explodeBomb(store, store.bombs[0]);
+
+		expect(store.items[0]).toMatchObject({ hidden: false, collected: true });
+		expect(store.players[0].blastRangeBonus).toBe(1);
+		expect(store.bombs[0].blastRange).toBe(2);
+		expect(store.grid[3][0]).toEqual(createCell(0));
+	});
+
+	it('stops an upgraded bomb blast at the first contribution block in each direction', () => {
+		const store = createStore();
+		store.grid = createEmptyGrid();
+		store.grid[1][0] = createCell(1);
+		store.grid[2][0] = createCell(1);
+		store.players = [
+			{
+				id: 1,
+				name: 'Bomberman',
+				x: 0,
+				y: 0,
+				alive: true,
+				direction: 'right',
+				bombsPlaced: 0,
+				cellsDestroyed: 0,
+				blastRangeBonus: 2,
+				sprite: ''
+			}
+		];
+
+		placeBomb(store, store.players[0]);
+		explodeBomb(store, store.bombs[0]);
+
+		expect(store.bombs[0].blastRange).toBe(3);
+		expect(store.grid[1][0]).toEqual(createCell(0));
+		expect(store.grid[2][0]).toEqual(createCell(1));
+	});
+
+	it('destroys visible items hit by a bomb blast', () => {
+		const store = createStore();
+		store.grid = createEmptyGrid();
+		store.items = [
+			{
+				id: 0,
+				type: 'blast-range',
+				x: 1,
+				y: 0,
+				hidden: false,
+				collected: false,
+				destroyed: false,
+				sprite: ''
+			}
+		];
+		store.players = [
+			{
+				id: 1,
+				name: 'Bomberman',
+				x: 0,
+				y: 0,
+				alive: true,
+				direction: 'right',
+				bombsPlaced: 0,
+				cellsDestroyed: 0,
+				blastRangeBonus: 0,
+				sprite: ''
+			}
+		];
+
+		placeBomb(store, store.players[0]);
+		explodeBomb(store, store.bombs[0]);
+		collectVisibleItemsAt(store, { ...store.players[0], x: 1, y: 0 });
+
+		expect(store.items[0]).toMatchObject({ destroyed: true, collected: false });
+		expect(store.players[0].blastRangeBonus).toBe(0);
+	});
+
+	it('avoids blasting visible items and prioritizes walking toward them', () => {
+		const store = createStore();
+		store.grid = createEmptyGrid();
+		store.items = [
+			{
+				id: 0,
+				type: 'blast-range',
+				x: 0,
+				y: 1,
+				hidden: false,
+				collected: false,
+				destroyed: false,
+				sprite: ''
+			}
+		];
+		store.players = [
+			{
+				id: 1,
+				name: 'Bomberman',
+				x: 0,
+				y: 0,
+				alive: true,
+				direction: 'right',
+				bombsPlaced: 0,
+				cellsDestroyed: 0,
+				blastRangeBonus: 0,
+				sprite: ''
+			},
+			{
+				id: 2,
+				name: 'Plunder Bomber',
+				x: 2,
+				y: 0,
+				alive: true,
+				direction: 'left',
+				bombsPlaced: 0,
+				cellsDestroyed: 0,
+				blastRangeBonus: 0,
+				sprite: ''
+			}
+		];
+
+		expect(shouldPlaceBomb(store, store.players[0])).toBe(false);
+
+		movePlayer(store, store.players[0]);
+		collectVisibleItemsAt(store, store.players[0]);
+
+		expect(store.players[0]).toMatchObject({ x: 0, y: 1, blastRangeBonus: 1 });
+		expect(store.items[0]).toMatchObject({ collected: true, destroyed: false });
 	});
 });

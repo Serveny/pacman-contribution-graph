@@ -1,16 +1,9 @@
 import { AnimationData } from '../../shared/types';
 import { Utils } from '../../shared/utils/utils';
+import { BOMBERMAN_ITEM_DEFINITIONS } from '../core/items';
 import { BOMBERMAN_SPRITE_SETS, BOMBERMAN_SVG, CELL_SIZE, DELTA_TIME, GAP_SIZE, GRID_HEIGHT, GRID_WIDTH } from '../core/constants';
-import { BombermanBomb, BombermanCellEvent, BombermanExplosionEvent, BombermanPlayer, BombermanStore } from '../types';
-import {
-	appendFinalKeyframe,
-	appendKeyframe,
-	buildChangingValuesAnimation,
-	buildStepwiseLinearAnimation,
-	frameToKeyTime
-} from './animation';
-
-const EXPLOSION_SPRITE_SIZE = CELL_SIZE * BOMBERMAN_SVG.EXPLOSION_SPRITE_CELL_SPAN + GAP_SIZE * BOMBERMAN_SVG.EXPLOSION_SPRITE_GAP_SPAN;
+import { BombermanBomb, BombermanCellEvent, BombermanExplosionEvent, BombermanItem, BombermanPlayer, BombermanStore } from '../types';
+import { buildChangingValuesAnimation, buildStepwiseLinearAnimation, frameToKeyTime } from './animation';
 
 type SpriteFrame = {
 	readonly width: number;
@@ -107,12 +100,12 @@ const PLAYER_DEATH_SPRITE_CHAINS: Record<BombermanPlayer['id'], SpriteCycle> = {
 
 const BOMB_SPRITE: SpriteSymbol = { id: 'bm-bomb', frame: BOMBERMAN_SPRITE_SETS.explosions.bombs.fuse0 };
 
-const EXPLOSION_SPRITE_CHAIN: SpriteCycle = [
-	{ id: 'bm-explosion-thin-left', frame: BOMBERMAN_SPRITE_SETS.explosions.crosses.thinLeft },
-	{ id: 'bm-explosion-full-left', frame: BOMBERMAN_SPRITE_SETS.explosions.crosses.fullLeft },
-	{ id: 'bm-explosion-full-right', frame: BOMBERMAN_SPRITE_SETS.explosions.crosses.fullRight },
-	{ id: 'bm-explosion-thin-right', frame: BOMBERMAN_SPRITE_SETS.explosions.crosses.thinRight }
-];
+const ITEM_SPRITES = Object.fromEntries(
+	Object.entries(BOMBERMAN_ITEM_DEFINITIONS).map(([type, definition]) => [
+		type,
+		{ id: `bm-item-${type}`, frame: definition.sprite }
+	])
+) as Record<BombermanItem['type'], SpriteSymbol>;
 
 const toSvgX = (gx: number) => gx * (CELL_SIZE + GAP_SIZE);
 const toSvgY = (gy: number) => gy * (CELL_SIZE + GAP_SIZE) + BOMBERMAN_SVG.HEADER_HEIGHT;
@@ -165,23 +158,28 @@ const generateAnimatedSVG = (store: BombermanStore): string => {
 		</use></g>`;
 	}
 
-	for (const explosion of store.explosionEvents) {
-		const opacityAnim = getExplosionOpacityAnimation(store, explosion);
-		const spriteAnim = getExplosionSpriteAnimation(store, explosion);
-		const cx = toSvgX(explosion.x) + CELL_SIZE / 2;
-		const cy = toSvgY(explosion.y) + CELL_SIZE / 2;
-		const x = cx - EXPLOSION_SPRITE_SIZE / 2;
-		const y = cy - EXPLOSION_SPRITE_SIZE / 2;
-		svg += `<use x="${x}" y="${y}" width="${EXPLOSION_SPRITE_SIZE}" height="${EXPLOSION_SPRITE_SIZE}" href="${getDefaultExplosionRef()}" opacity="0" style="will-change: opacity;">`;
-		if (spriteAnim) {
-			svg += `<animate attributeName="href" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
-				keyTimes="${spriteAnim.keyTimes}" values="${spriteAnim.values}"/>`;
-		}
+	for (const itemEvent of collectItems(store)) {
+		const opacityAnim = buildVisibilityAnimation(totalFrames, itemEvent.startFrame, itemEvent.endFrameExclusive);
+		const initialOpacity = itemEvent.startFrame === 0 ? '1' : '0';
+		const x = toSvgX(itemEvent.item.x) + (CELL_SIZE - BOMBERMAN_SVG.ITEM_WIDTH) / 2;
+		const y = toSvgY(itemEvent.item.y) + (CELL_SIZE - BOMBERMAN_SVG.ITEM_HEIGHT) / 2;
+		svg += `<use id="item-${itemEvent.item.id}" x="${x}" y="${y}" width="${BOMBERMAN_SVG.ITEM_WIDTH}" height="${BOMBERMAN_SVG.ITEM_HEIGHT}" href="${getItemRef(itemEvent.item.type)}" opacity="${initialOpacity}" style="will-change: opacity;">`;
 		if (opacityAnim) {
 			svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
 				keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
 		}
 		svg += `</use>`;
+	}
+
+	for (const explosion of store.explosionEvents) {
+		const opacityAnim = getExplosionOpacityAnimation(store, explosion);
+		svg += `<g opacity="0" style="will-change: opacity;">`;
+		svg += renderExplosionShape(explosion);
+		if (opacityAnim) {
+			svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
+				keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
+		}
+		svg += `</g>`;
 	}
 
 	for (const player of store.players) {
@@ -252,6 +250,12 @@ type BombRenderEvent = {
 	endFrameExclusive: number;
 };
 
+type ItemRenderEvent = {
+	item: BombermanItem;
+	startFrame: number;
+	endFrameExclusive: number;
+};
+
 const collectBombs = (store: BombermanStore): BombRenderEvent[] => {
 	const bombs = new Map<number, BombRenderEvent>();
 	for (let frameIndex = 0; frameIndex < store.gameHistory.length; frameIndex++) {
@@ -270,6 +274,30 @@ const collectBombs = (store: BombermanStore): BombRenderEvent[] => {
 		}
 	}
 	return Array.from(bombs.values());
+};
+
+const collectItems = (store: BombermanStore): ItemRenderEvent[] => {
+	const items = new Map<number, ItemRenderEvent>();
+
+	for (let frameIndex = 0; frameIndex < store.gameHistory.length; frameIndex++) {
+		const frame = store.gameHistory[frameIndex];
+		for (const item of frame.items) {
+			if (item.hidden || item.collected || item.destroyed) continue;
+
+			const existing = items.get(item.id);
+			if (existing) {
+				existing.endFrameExclusive = frameIndex + 1;
+			} else {
+				items.set(item.id, {
+					item,
+					startFrame: frameIndex,
+					endFrameExclusive: frameIndex + 1
+				});
+			}
+		}
+	}
+
+	return Array.from(items.values());
 };
 
 const getPlayerPositions = (store: BombermanStore, playerId: BombermanPlayer['id']): string[] =>
@@ -326,24 +354,61 @@ const getPlayerDeathFrameIndex = (store: BombermanStore, playerId: BombermanPlay
 
 const centerPosition = (x: number, y: number) => `${toSvgX(x) + CELL_SIZE / 2} ${toSvgY(y) + CELL_SIZE / 2}`;
 
-const getExplosionSpriteAnimation = (store: BombermanStore, explosion: BombermanExplosionEvent): AnimationData | null => {
-	const totalFrames = store.gameHistory.length;
-	const keyTimes: number[] = [0];
-	const values: string[] = [getDefaultExplosionRef()];
-	const visibleFrames = Math.max(explosion.remainingFrames, 1);
+const renderExplosionShape = (explosion: BombermanExplosionEvent) => {
+	const outerPath = buildExplosionPath(explosion, 0);
+	const midPath = buildExplosionPath(explosion, 4);
+	const corePath = buildExplosionPath(explosion, 8);
 
-	for (let localFrame = 0; localFrame < visibleFrames; localFrame++) {
-		const frameIndex = explosion.frameIndex + localFrame;
-		const time = frameToKeyTime(frameIndex, totalFrames);
-		const spriteIndex = Math.min(localFrame, EXPLOSION_SPRITE_CHAIN.length - 1);
-		appendKeyframe(keyTimes, values, time, toSpriteRef(EXPLOSION_SPRITE_CHAIN[spriteIndex]));
+	return `<path d="${outerPath}" fill="#f15a24"/>
+		<path d="${midPath}" fill="#ffc928"/>
+		<path d="${corePath}" fill="#fff3a6"/>`;
+};
+
+const buildExplosionPath = (explosion: BombermanExplosionEvent, inset: number) => {
+	const arms = getExplosionArmLengths(explosion);
+	const x = toSvgX(explosion.x) + inset;
+	const y = toSvgY(explosion.y) + inset;
+	const size = CELL_SIZE - inset * 2;
+	const left = toSvgX(explosion.x - arms.left) + inset;
+	const right = toSvgX(explosion.x + arms.right) + CELL_SIZE - inset;
+	const top = toSvgY(explosion.y - arms.up) + inset;
+	const bottom = toSvgY(explosion.y + arms.down) + CELL_SIZE - inset;
+
+	return [
+		`M ${x} ${top}`,
+		`L ${x} ${y}`,
+		`L ${left} ${y}`,
+		`L ${left} ${y + size}`,
+		`L ${x} ${y + size}`,
+		`L ${x} ${bottom}`,
+		`L ${x + size} ${bottom}`,
+		`L ${x + size} ${y + size}`,
+		`L ${right} ${y + size}`,
+		`L ${right} ${y}`,
+		`L ${x + size} ${y}`,
+		`L ${x + size} ${top}`,
+		'Z'
+	].join(' ');
+};
+
+const getExplosionArmLengths = (explosion: BombermanExplosionEvent) => {
+	let left = 0;
+	let right = 0;
+	let up = 0;
+	let down = 0;
+
+	for (const cell of explosion.affectedCells) {
+		if (cell.y === explosion.y) {
+			if (cell.x < explosion.x) left = Math.max(left, explosion.x - cell.x);
+			if (cell.x > explosion.x) right = Math.max(right, cell.x - explosion.x);
+		}
+		if (cell.x === explosion.x) {
+			if (cell.y < explosion.y) up = Math.max(up, explosion.y - cell.y);
+			if (cell.y > explosion.y) down = Math.max(down, cell.y - explosion.y);
+		}
 	}
 
-	appendFinalKeyframe(keyTimes, values);
-
-	if (values.length <= 1 || values.every((v) => v === values[0])) return null;
-
-	return { keyTimes: keyTimes.join(';'), values: values.join(';') };
+	return { left, right, up, down };
 };
 
 const getExplosionOpacityAnimation = (store: BombermanStore, explosion: BombermanExplosionEvent): AnimationData | null => {
@@ -394,7 +459,7 @@ const buildSpriteDefs = () => {
 		for (const sprite of cycle) symbols.set(sprite.id, sprite);
 	}
 	symbols.set(BOMB_SPRITE.id, BOMB_SPRITE);
-	for (const sprite of EXPLOSION_SPRITE_CHAIN) symbols.set(sprite.id, sprite);
+	for (const sprite of Object.values(ITEM_SPRITES)) symbols.set(sprite.id, sprite);
 
 	const defs = Array.from(symbols.entries())
 		.map(
@@ -413,7 +478,7 @@ const getDefaultPlayerRef = (playerId: BombermanPlayer['id']) => toSpriteRef(PLA
 
 const getDefaultBombRef = () => toSpriteRef(BOMB_SPRITE);
 
-const getDefaultExplosionRef = () => toSpriteRef(EXPLOSION_SPRITE_CHAIN[0]);
+const getItemRef = (type: BombermanItem['type']) => toSpriteRef(ITEM_SPRITES[type]);
 
 export const Renderer = {
 	generateAnimatedSVG

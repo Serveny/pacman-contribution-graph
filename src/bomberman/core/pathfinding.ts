@@ -7,6 +7,7 @@ import {
 	BombermanStore
 } from '../types';
 import { BOMBERMAN_BOMB_FUSE_FRAMES } from './constants';
+import { getPlayerBlastRange } from './items';
 import {
 	bombAt,
 	bombsThreateningAt,
@@ -286,6 +287,7 @@ export const canEscapeAfterPlantingBombAt = (store: BombermanStore, player: Bomb
 		y: position.y,
 		timer: BOMBERMAN_BOMB_FUSE_FRAMES,
 		exploded: false,
+		blastRange: getPlayerBlastRange(player),
 		sprite: ''
 	};
 	const virtualPlayer = { ...player, x: position.x, y: position.y };

@@ -1,6 +1,7 @@
 import { BombermanDirection, BombermanPlayer, BombermanPosition, BombermanStore } from '../types';
 import {
 	bombAt,
+	bombWouldHitVisibleItem,
 	bombWouldHitOpponent,
 	bombWouldHitTarget,
 	DIRECTIONS,
@@ -23,6 +24,7 @@ import {
 	isBacktrackingStep
 } from './pathfinding';
 import { BOMBERMAN_AI_SCORE, BOMBERMAN_PATH_BLAST_COST } from './constants';
+import { getPlayerBlastRange, hasVisibleItemAt } from './items';
 
 type BombSpot = { position: BombermanPosition; firstStep: BombermanPosition | null; contribution: BombermanPosition; score: number };
 
@@ -34,7 +36,12 @@ const findBestBombSpotTowardOpponent = (store: BombermanStore, player: Bomberman
 	for (const origin of origins) {
 		if (!canEscapeAfterPlantingBombAt(store, player, origin.position)) continue;
 
-		const contributions = getBlastCells(origin.position).filter((position) => isContributionCell(store, position));
+		const blastRange = getPlayerBlastRange(player);
+		if (bombWouldHitVisibleItem(store, origin.position, blastRange)) continue;
+
+		const contributions = getBlastCells(store, origin.position, blastRange).filter((position) =>
+			isContributionCell(store, position)
+		);
 		if (contributions.length === 0) continue;
 
 		const openedCells = new Set(contributions.map(positionKey));
@@ -72,6 +79,7 @@ const findBestBombSpotTowardOpponent = (store: BombermanStore, player: Bomberman
 
 export const shouldPlaceBomb = (store: BombermanStore, player: BombermanPlayer) => {
 	if (!canEscapeAfterPlantingBomb(store, player)) return false;
+	if (bombWouldHitVisibleItem(store, player, getPlayerBlastRange(player))) return false;
 	if (bombWouldHitOpponent(store, player)) return true;
 
 	const opponent = store.players.find((candidate) => candidate.id !== player.id && candidate.alive);
@@ -94,6 +102,22 @@ export const movePlayer = (store: BombermanStore, player: BombermanPlayer) => {
 	if (!opponent) return;
 
 	const previousPosition = getPreviousPlayerPosition(store, player.id);
+	const itemRoute = findPathToTarget(store, player, (position) => hasVisibleItemAt(store, position), {
+		avoidFirstStep: previousPosition,
+		attackSide: player.attackSide,
+		routePreference: player.routePreference
+	});
+	const safeItemStep =
+		itemRoute?.firstStep &&
+		isPassableCell(store, itemRoute.firstStep) &&
+		!isOwnExplosionDangerCell(store, player, itemRoute.firstStep)
+			? itemRoute.firstStep
+			: null;
+	if (safeItemStep) {
+		movePlayerTo(player, safeItemStep);
+		return;
+	}
+
 	const directRoute = findPathToTarget(store, player, (position) => samePosition(position, opponent), {
 		avoidFirstStep: previousPosition,
 		attackSide: player.attackSide,

@@ -3,6 +3,7 @@ import { Renderer } from '../renderers/svg';
 import { BombermanAttackSide, BombermanPlayer, BombermanPosition, BombermanRoutePreference, BombermanStore } from '../types';
 import { GRID_HEIGHT, GRID_WIDTH, BOMBERMAN_MAX_FRAMES, BOMBERMAN_SPRITE_SETS } from './constants';
 import { movePlayer, shouldPlaceBomb } from './ai';
+import { collectVisibleItemsAt, createHiddenItems } from './items';
 import {
 	canPlaceBomb,
 	clearSpawnArea,
@@ -42,6 +43,7 @@ const createPlayer = (
 	direction,
 	bombsPlaced: 0,
 	cellsDestroyed: 0,
+	blastRangeBonus: 0,
 	sprite,
 	attackSide: randomAttackSide(),
 	routePreference: randomRoutePreference()
@@ -60,7 +62,8 @@ const pushSnapshot = (store: BombermanStore) => {
 			...explosion,
 			affectedCells: explosion.affectedCells.map((cell) => ({ ...cell })),
 			hitPlayerIds: [...explosion.hitPlayerIds]
-		}))
+		})),
+		items: store.items.map((item) => ({ ...item }))
 	});
 };
 
@@ -77,6 +80,7 @@ const updateGame = (store: BombermanStore) => {
 			placeBomb(store, player);
 		}
 		movePlayer(store, player);
+		collectVisibleItemsAt(store, player);
 		killPlayersInActiveExplosions(store);
 	}
 
@@ -95,9 +99,11 @@ const appendDeathAnimationSnapshots = (store: BombermanStore) => {
 const resetGameState = (store: BombermanStore) => {
 	store.frameCount = 0;
 	store.nextBombId = 0;
+	store.nextItemId = 0;
 	store.players = [];
 	store.bombs = [];
 	store.activeExplosions = [];
+	store.items = [];
 	store.gameHistory = [];
 	store.cellEvents = [];
 	store.explosionEvents = [];
@@ -113,6 +119,7 @@ const startGame = async (store: BombermanStore) => {
 	store.grid = Utils.createGridFromData(store);
 	clearPlayerSpawnAreas(store);
 	store.initialColors = store.grid.map((col) => col.map((cell) => cell.color));
+	createHiddenItems(store);
 	placePlayers(store);
 	pushSnapshot(store);
 
