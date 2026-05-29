@@ -1,12 +1,11 @@
 import { Utils } from '../../shared/utils/utils';
 import { Renderer } from '../renderers/svg';
-import { BombermanPlayer, BombermanPosition, BombermanStore } from '../types';
+import { BombermanAttackSide, BombermanPlayer, BombermanPosition, BombermanRoutePreference, BombermanStore } from '../types';
 import { GRID_HEIGHT, GRID_WIDTH, BOMBERMAN_MAX_FRAMES, BOMBERMAN_SPRITE_SETS } from './constants';
 import { movePlayer, shouldPlaceBomb } from './ai';
 import {
 	canPlaceBomb,
 	clearSpawnArea,
-	countRemainingContributions,
 	killPlayersInActiveExplosions,
 	placeBomb,
 	updateBombs,
@@ -43,8 +42,15 @@ const createPlayer = (
 	direction,
 	bombsPlaced: 0,
 	cellsDestroyed: 0,
-	sprite
+	sprite,
+	attackSide: randomAttackSide(),
+	routePreference: randomRoutePreference()
 });
+
+const randomAttackSide = (): BombermanAttackSide => (Math.random() < 0.5 ? 'left' : 'right');
+
+const randomRoutePreference = (): BombermanRoutePreference =>
+	Math.random() < 0.5 ? 'horizontal-first' : 'vertical-first';
 
 const pushSnapshot = (store: BombermanStore) => {
 	store.gameHistory.push({
@@ -110,11 +116,7 @@ const startGame = async (store: BombermanStore) => {
 	placePlayers(store);
 	pushSnapshot(store);
 
-	while (
-		countRemainingContributions(store) > 0 &&
-		store.players.filter((player) => player.alive).length > 1 &&
-		store.frameCount < BOMBERMAN_MAX_FRAMES
-	) {
+	while (store.players.filter((player) => player.alive).length > 1 && store.frameCount < BOMBERMAN_MAX_FRAMES) {
 		updateGame(store);
 	}
 

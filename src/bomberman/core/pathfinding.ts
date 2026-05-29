@@ -1,4 +1,11 @@
-import { BombermanBomb, BombermanPlayer, BombermanPosition, BombermanStore } from '../types';
+import {
+	BombermanAttackSide,
+	BombermanBomb,
+	BombermanPlayer,
+	BombermanPosition,
+	BombermanRoutePreference,
+	BombermanStore
+} from '../types';
 import { BOMBERMAN_BOMB_FUSE_FRAMES } from './constants';
 import {
 	bombAt,
@@ -20,6 +27,9 @@ export type RouteStep = { firstStep: BombermanPosition | null; distance: number 
 export type EstimatedRoute = RouteStep & { cost: number; blastedCells: number };
 export type PathOptions = {
 	avoidFirstStep?: BombermanPosition | null;
+	attackSide?: BombermanAttackSide;
+	origin?: BombermanPosition;
+	routePreference?: BombermanRoutePreference;
 	target?: BombermanPosition;
 };
 
@@ -39,9 +49,32 @@ export const sortPathOptions = <T extends BombermanPosition>(positions: T[], opt
 		const aBacktracks = options.avoidFirstStep && samePosition(a, options.avoidFirstStep) ? 1 : 0;
 		const bBacktracks = options.avoidFirstStep && samePosition(b, options.avoidFirstStep) ? 1 : 0;
 		if (aBacktracks !== bBacktracks) return aBacktracks - bBacktracks;
-		if (options.target) return manhattan(a, options.target) - manhattan(b, options.target);
+		if (options.target) {
+			const distanceDiff = manhattan(a, options.target) - manhattan(b, options.target);
+			if (distanceDiff !== 0) return distanceDiff;
+
+			const axisDiff = routeAxisRank(a, options) - routeAxisRank(b, options);
+			if (axisDiff !== 0) return axisDiff;
+
+			const sideDiff = attackSideRank(a, options) - attackSideRank(b, options);
+			if (sideDiff !== 0) return sideDiff;
+		}
 		return 0;
 	});
+
+const routeAxisRank = (position: BombermanPosition, options: PathOptions) => {
+	if (!options.origin || !options.routePreference) return 0;
+
+	const axis = position.x !== options.origin.x ? 'horizontal-first' : 'vertical-first';
+	return axis === options.routePreference ? 0 : 1;
+};
+
+const attackSideRank = (position: BombermanPosition, options: PathOptions) => {
+	if (!options.attackSide || !options.target) return 0;
+
+	if (options.attackSide === 'left') return position.x <= options.target.x ? 0 : 1;
+	return position.x >= options.target.x ? 0 : 1;
+};
 
 export const findPathToTarget = (
 	store: BombermanStore,
@@ -67,7 +100,14 @@ export const findPathToTarget = (
 
 		const nextPositions = sortPathOptions(
 			getAdjacentPositions(current.position),
-			current.firstStep ? { target: options.target } : options
+			current.firstStep
+				? {
+						attackSide: options.attackSide,
+						origin: current.position,
+						routePreference: options.routePreference,
+						target: options.target
+					}
+				: { ...options, origin: current.position }
 		);
 		for (const next of nextPositions) {
 			const key = positionKey(next);
@@ -199,7 +239,20 @@ export const findReachableBombOrigins = (
 
 		const nextPositions = sortPathOptions(
 			getAdjacentPositions(current.position),
-			current.firstStep ? { target: player } : { avoidFirstStep: previousPosition, target: player }
+			current.firstStep
+				? {
+						attackSide: player.attackSide,
+						origin: current.position,
+						routePreference: player.routePreference,
+						target: player
+					}
+				: {
+						attackSide: player.attackSide,
+						avoidFirstStep: previousPosition,
+						origin: current.position,
+						routePreference: player.routePreference,
+						target: player
+					}
 		);
 		for (const next of nextPositions) {
 			const key = positionKey(next);

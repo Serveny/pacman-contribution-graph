@@ -96,6 +96,8 @@ export const movePlayer = (store: BombermanStore, player: BombermanPlayer) => {
 	const previousPosition = getPreviousPlayerPosition(store, player.id);
 	const directRoute = findPathToTarget(store, player, (position) => samePosition(position, opponent), {
 		avoidFirstStep: previousPosition,
+		attackSide: player.attackSide,
+		routePreference: player.routePreference,
 		target: opponent
 	});
 	const safeDirectStep =
