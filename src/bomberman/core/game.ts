@@ -3,7 +3,7 @@ import { Renderer } from '../renderers/svg';
 import { BombermanAttackSide, BombermanPlayer, BombermanPosition, BombermanRoutePreference, BombermanStore } from '../types';
 import { GRID_HEIGHT, GRID_WIDTH, BOMBERMAN_MAX_FRAMES, BOMBERMAN_SPRITE_SETS } from './constants';
 import { movePlayer, shouldPlaceBomb } from './ai';
-import { collectVisibleItemsAt, createHiddenItems } from './items';
+import { collectVisibleItemsAt, createHiddenItems, getPlayerMoveCount } from './items';
 import {
 	canPlaceBomb,
 	clearSpawnArea,
@@ -44,6 +44,8 @@ const createPlayer = (
 	bombsPlaced: 0,
 	cellsDestroyed: 0,
 	blastRangeBonus: 0,
+	speedBonus: 0,
+	movementStepProgress: 0,
 	sprite,
 	attackSide: randomAttackSide(),
 	routePreference: randomRoutePreference()
@@ -79,9 +81,12 @@ const updateGame = (store: BombermanStore) => {
 		if (canPlaceBomb(store, player) && shouldPlaceBomb(store, player)) {
 			placeBomb(store, player);
 		}
-		movePlayer(store, player);
-		collectVisibleItemsAt(store, player);
-		killPlayersInActiveExplosions(store);
+		const moveCount = getPlayerMoveCount(player);
+		for (let moveIndex = 0; moveIndex < moveCount && player.alive; moveIndex++) {
+			movePlayer(store, player);
+			collectVisibleItemsAt(store, player);
+			killPlayersInActiveExplosions(store);
+		}
 	}
 
 	pushSnapshot(store);

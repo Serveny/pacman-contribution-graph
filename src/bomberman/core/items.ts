@@ -1,6 +1,14 @@
 import { GridCell } from '../../shared/types';
 import { BombermanItem, BombermanItemType, BombermanPlayer, BombermanPosition, BombermanStore } from '../types';
-import { BOMBERMAN_BLAST_RANGE, BOMBERMAN_ITEM_DROP_CHANCE_BY_LEVEL, BOMBERMAN_ITEM_SPRITES, GRID_HEIGHT, GRID_WIDTH } from './constants';
+import {
+	BOMBERMAN_BLAST_RANGE,
+	BOMBERMAN_ITEM_DROP_CHANCE_BY_LEVEL,
+	BOMBERMAN_ITEM_SPRITES,
+	BOMBERMAN_PLAYER_SPEED_UNITS,
+	BOMBERMAN_SPEED_ITEM_BONUS,
+	GRID_HEIGHT,
+	GRID_WIDTH
+} from './constants';
 
 export type BombermanItemDefinition = {
 	type: BombermanItemType;
@@ -19,10 +27,26 @@ export const BOMBERMAN_ITEM_DEFINITIONS: Record<BombermanItemType, BombermanItem
 		apply: (player) => {
 			player.blastRangeBonus = (player.blastRangeBonus ?? 0) + 1;
 		}
+	},
+	speed: {
+		type: 'speed',
+		sprite: BOMBERMAN_ITEM_SPRITES.speed,
+		apply: (player) => {
+			player.speedBonus = (player.speedBonus ?? 0) + BOMBERMAN_SPEED_ITEM_BONUS;
+		}
 	}
 };
 
 export const getPlayerBlastRange = (player: BombermanPlayer) => BOMBERMAN_BLAST_RANGE + (player.blastRangeBonus ?? 0);
+
+export const getPlayerMoveCount = (player: BombermanPlayer) => {
+	const speedUnits = BOMBERMAN_PLAYER_SPEED_UNITS + (player.speedBonus ?? 0);
+	const progress = (player.movementStepProgress ?? 0) + speedUnits;
+	const moveCount = Math.floor(progress / BOMBERMAN_PLAYER_SPEED_UNITS);
+
+	player.movementStepProgress = progress % BOMBERMAN_PLAYER_SPEED_UNITS;
+	return Math.max(1, moveCount);
+};
 
 export const getItemDropChance = (cell: GridCell) =>
 	cell.commitsCount > 0 ? BOMBERMAN_ITEM_DROP_CHANCE_BY_LEVEL[cell.level] : 0;

@@ -25,7 +25,7 @@ export type BombermanPlayerId = 1 | 2;
 export type BombermanDirection = 'up' | 'down' | 'left' | 'right';
 export type BombermanAttackSide = 'left' | 'right';
 export type BombermanRoutePreference = 'horizontal-first' | 'vertical-first';
-export type BombermanItemType = 'blast-range';
+export type BombermanItemType = 'blast-range' | 'speed';
 
 export interface BombermanPosition {
 	x: number;
@@ -40,6 +40,8 @@ export interface BombermanPlayer extends BombermanPosition {
 	bombsPlaced: number;
 	cellsDestroyed: number;
 	blastRangeBonus: number;
+	speedBonus?: number;
+	movementStepProgress?: number;
 	sprite: string;
 	attackSide?: BombermanAttackSide;
 	routePreference?: BombermanRoutePreference;

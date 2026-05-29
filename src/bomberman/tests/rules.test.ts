@@ -3,7 +3,7 @@ import { GridCell } from '../../shared/types';
 import { BombermanStore } from '../types';
 import { Game } from '../core/game';
 import { movePlayer, shouldPlaceBomb } from '../core/ai';
-import { collectVisibleItemsAt } from '../core/items';
+import { collectVisibleItemsAt, getPlayerMoveCount } from '../core/items';
 import { sortPathOptions } from '../core/pathfinding';
 import { clearContributionCell, clearSpawnArea, explodeBomb, killPlayersInActiveExplosions, placeBomb } from '../core/rules';
 
@@ -304,6 +304,47 @@ describe('Bomberman explosion handling', () => {
 		expect(store.players[0].blastRangeBonus).toBe(1);
 		expect(store.bombs[0].blastRange).toBe(2);
 		expect(store.grid[3][0]).toEqual(createCell(0));
+	});
+
+	it('applies 5% speed on pickup and adds one extra move every twentieth frame', () => {
+		const store = createStore();
+		store.grid = createEmptyGrid();
+		store.items = [
+			{
+				id: 0,
+				type: 'speed',
+				x: 0,
+				y: 0,
+				hidden: false,
+				collected: false,
+				destroyed: false,
+				sprite: ''
+			}
+		];
+		store.players = [
+			{
+				id: 1,
+				name: 'Bomberman',
+				x: 0,
+				y: 0,
+				alive: true,
+				direction: 'right',
+				bombsPlaced: 0,
+				cellsDestroyed: 0,
+				blastRangeBonus: 0,
+				speedBonus: 0,
+				movementStepProgress: 0,
+				sprite: ''
+			}
+		];
+
+		collectVisibleItemsAt(store, store.players[0]);
+
+		expect(store.items[0]).toMatchObject({ collected: true });
+		expect(store.players[0].speedBonus).toBe(5);
+		expect(Array.from({ length: 20 }, () => getPlayerMoveCount(store.players[0]))).toEqual([
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2
+		]);
 	});
 
 	it('stops an upgraded bomb blast at the first contribution block in each direction', () => {
