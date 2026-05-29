@@ -14,6 +14,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _rules__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./rules */ "./src/bomberman/core/rules.ts");
 /* harmony import */ var _pathfinding__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./pathfinding */ "./src/bomberman/core/pathfinding.ts");
 /* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./constants */ "./src/bomberman/core/constants.ts");
+/* harmony import */ var _items__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./items */ "./src/bomberman/core/items.ts");
+
 
 
 
@@ -24,7 +26,10 @@ const findBestBombSpotTowardOpponent = (store, player, opponent) => {
     for (const origin of origins) {
         if (!(0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.canEscapeAfterPlantingBombAt)(store, player, origin.position))
             continue;
-        const contributions = (0,_rules__WEBPACK_IMPORTED_MODULE_0__.getBlastCells)(origin.position).filter((position) => (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isContributionCell)(store, position));
+        const blastRange = (0,_items__WEBPACK_IMPORTED_MODULE_3__.getPlayerBlastRange)(player);
+        if ((0,_rules__WEBPACK_IMPORTED_MODULE_0__.bombWouldHitVisibleItem)(store, origin.position, blastRange))
+            continue;
+        const contributions = (0,_rules__WEBPACK_IMPORTED_MODULE_0__.getBlastCells)(store, origin.position, blastRange).filter((position) => (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isContributionCell)(store, position));
         if (contributions.length === 0)
             continue;
         const openedCells = new Set(contributions.map(_rules__WEBPACK_IMPORTED_MODULE_0__.positionKey));
@@ -58,6 +63,8 @@ const findBestBombSpotTowardOpponent = (store, player, opponent) => {
 const shouldPlaceBomb = (store, player) => {
     if (!(0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.canEscapeAfterPlantingBomb)(store, player))
         return false;
+    if ((0,_rules__WEBPACK_IMPORTED_MODULE_0__.bombWouldHitVisibleItem)(store, player, (0,_items__WEBPACK_IMPORTED_MODULE_3__.getPlayerBlastRange)(player)))
+        return false;
     if ((0,_rules__WEBPACK_IMPORTED_MODULE_0__.bombWouldHitOpponent)(store, player))
         return true;
     const opponent = store.players.find((candidate) => candidate.id !== player.id && candidate.alive);
@@ -68,7 +75,7 @@ const shouldPlaceBomb = (store, player) => {
 };
 const movePlayer = (store, player) => {
     const escapeStep = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.findEscapeStep)(store, player);
-    const mustEscape = Boolean((0,_rules__WEBPACK_IMPORTED_MODULE_0__.bombAt)(store, player)) || (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isActiveExplosionCell)(store, player, player.id) || (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isInOwnFutureBlast)(store, player, player);
+    const mustEscape = Boolean((0,_rules__WEBPACK_IMPORTED_MODULE_0__.bombAt)(store, player)) || (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isOwnExplosionDangerCell)(store, player, player);
     if (mustEscape) {
         if (escapeStep)
             movePlayerTo(player, escapeStep);
@@ -78,26 +85,40 @@ const movePlayer = (store, player) => {
     if (!opponent)
         return;
     const previousPosition = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.getPreviousPlayerPosition)(store, player.id);
+    const itemRoute = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.findPathToTarget)(store, player, (position) => (0,_items__WEBPACK_IMPORTED_MODULE_3__.hasVisibleItemAt)(store, position), {
+        avoidFirstStep: previousPosition,
+        attackSide: player.attackSide,
+        routePreference: player.routePreference
+    });
+    const safeItemStep = (itemRoute === null || itemRoute === void 0 ? void 0 : itemRoute.firstStep) &&
+        (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isPassableCell)(store, itemRoute.firstStep) &&
+        !(0,_rules__WEBPACK_IMPORTED_MODULE_0__.isOwnExplosionDangerCell)(store, player, itemRoute.firstStep)
+        ? itemRoute.firstStep
+        : null;
+    if (safeItemStep) {
+        movePlayerTo(player, safeItemStep);
+        return;
+    }
     const directRoute = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.findPathToTarget)(store, player, (position) => (0,_rules__WEBPACK_IMPORTED_MODULE_0__.samePosition)(position, opponent), {
         avoidFirstStep: previousPosition,
+        attackSide: player.attackSide,
+        routePreference: player.routePreference,
         target: opponent
     });
     const safeDirectStep = (directRoute === null || directRoute === void 0 ? void 0 : directRoute.firstStep) &&
         (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isPassableCell)(store, directRoute.firstStep) &&
-        !(0,_rules__WEBPACK_IMPORTED_MODULE_0__.isActiveExplosionCell)(store, directRoute.firstStep, player.id) &&
-        !(0,_rules__WEBPACK_IMPORTED_MODULE_0__.isInOwnFutureBlast)(store, player, directRoute.firstStep)
+        !(0,_rules__WEBPACK_IMPORTED_MODULE_0__.isOwnExplosionDangerCell)(store, player, directRoute.firstStep)
         ? directRoute.firstStep
         : null;
     if (safeDirectStep) {
         movePlayerTo(player, safeDirectStep);
         return;
     }
-    const hasOwnActiveBomb = store.bombs.some((bomb) => !bomb.exploded && bomb.ownerId === player.id);
-    if (hasOwnActiveBomb)
+    if (!(0,_rules__WEBPACK_IMPORTED_MODULE_0__.canPlaceBomb)(store, player))
         return;
     const bombSpot = findBestBombSpotTowardOpponent(store, player, opponent);
     const next = bombSpot === null || bombSpot === void 0 ? void 0 : bombSpot.firstStep;
-    if (!next || !(0,_rules__WEBPACK_IMPORTED_MODULE_0__.isPassableCell)(store, next) || (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isActiveExplosionCell)(store, next, player.id) || (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isInOwnFutureBlast)(store, player, next)) {
+    if (!next || !(0,_rules__WEBPACK_IMPORTED_MODULE_0__.isPassableCell)(store, next) || (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isOwnExplosionDangerCell)(store, player, next)) {
         return;
     }
     movePlayerTo(player, next);
@@ -126,12 +147,17 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   BOMBERMAN_AI_SCORE: () => (/* binding */ BOMBERMAN_AI_SCORE),
 /* harmony export */   BOMBERMAN_BLAST_RANGE: () => (/* binding */ BOMBERMAN_BLAST_RANGE),
 /* harmony export */   BOMBERMAN_BOMB_FUSE_FRAMES: () => (/* binding */ BOMBERMAN_BOMB_FUSE_FRAMES),
+/* harmony export */   BOMBERMAN_BOMB_LIMIT: () => (/* binding */ BOMBERMAN_BOMB_LIMIT),
 /* harmony export */   BOMBERMAN_DEATH_ANIMATION_FRAMES: () => (/* binding */ BOMBERMAN_DEATH_ANIMATION_FRAMES),
 /* harmony export */   BOMBERMAN_EXPLOSION_DURATION_FRAMES: () => (/* binding */ BOMBERMAN_EXPLOSION_DURATION_FRAMES),
 /* harmony export */   BOMBERMAN_EXPLOSION_SPRITES: () => (/* binding */ BOMBERMAN_EXPLOSION_SPRITES),
+/* harmony export */   BOMBERMAN_ITEM_DROP_CHANCE_BY_LEVEL: () => (/* binding */ BOMBERMAN_ITEM_DROP_CHANCE_BY_LEVEL),
+/* harmony export */   BOMBERMAN_ITEM_SPRITES: () => (/* binding */ BOMBERMAN_ITEM_SPRITES),
 /* harmony export */   BOMBERMAN_MAX_FRAMES: () => (/* binding */ BOMBERMAN_MAX_FRAMES),
 /* harmony export */   BOMBERMAN_PATH_BLAST_COST: () => (/* binding */ BOMBERMAN_PATH_BLAST_COST),
+/* harmony export */   BOMBERMAN_PLAYER_SPEED_UNITS: () => (/* binding */ BOMBERMAN_PLAYER_SPEED_UNITS),
 /* harmony export */   BOMBERMAN_PLAYER_SPRITES: () => (/* binding */ BOMBERMAN_PLAYER_SPRITES),
+/* harmony export */   BOMBERMAN_SPEED_ITEM_BONUS: () => (/* binding */ BOMBERMAN_SPEED_ITEM_BONUS),
 /* harmony export */   BOMBERMAN_SPRITE_SETS: () => (/* binding */ BOMBERMAN_SPRITE_SETS),
 /* harmony export */   BOMBERMAN_SVG: () => (/* binding */ BOMBERMAN_SVG),
 /* harmony export */   CELL_SIZE: () => (/* reexport safe */ _shared_constants__WEBPACK_IMPORTED_MODULE_0__.CELL_SIZE),
@@ -146,8 +172,18 @@ __webpack_require__.r(__webpack_exports__);
 
 const BOMBERMAN_BOMB_FUSE_FRAMES = 8;
 const BOMBERMAN_EXPLOSION_DURATION_FRAMES = 4;
-const BOMBERMAN_MAX_FRAMES = 1200;
+const BOMBERMAN_MAX_FRAMES = 400;
 const BOMBERMAN_BLAST_RANGE = 1;
+const BOMBERMAN_BOMB_LIMIT = 1;
+const BOMBERMAN_PLAYER_SPEED_UNITS = 100;
+const BOMBERMAN_SPEED_ITEM_BONUS = 5;
+const BOMBERMAN_ITEM_DROP_CHANCE_BY_LEVEL = {
+    NONE: 0,
+    FIRST_QUARTILE: 0.08,
+    SECOND_QUARTILE: 0.16,
+    THIRD_QUARTILE: 0.28,
+    FOURTH_QUARTILE: 0.42
+};
 const BOMBERMAN_SVG = {
     PRECISION: 4,
     HEADER_HEIGHT: 15,
@@ -163,8 +199,9 @@ const BOMBERMAN_SVG = {
     BOMB_WIDTH: 16,
     BOMB_HEIGHT: 18,
     BOMB_PULSE_SCALE: 1.1,
-    EXPLOSION_SPRITE_CELL_SPAN: 3,
-    EXPLOSION_SPRITE_GAP_SPAN: 2,
+    ITEM_WIDTH: 16,
+    ITEM_HEIGHT: 16,
+    BLAST_THICKNESS: 16,
     EXPLOSION_OPACITY: 0.9,
     MIN_DURATION_MS: 1000,
     DURATION_SPEED_DIVISOR: 2
@@ -181,6 +218,29 @@ const BOMBERMAN_AI_SCORE = {
     CONTRIBUTION_COUNT_REWARD: 0.25,
     ROUTE_IMPROVEMENT_REWARD: 0.5,
     BACKTRACK_PENALTY: 6
+};
+const BOMBERMAN_ITEM_SPRITES = {
+    blastRange: {
+        x: 0,
+        y: 0,
+        width: 16,
+        height: 16,
+        data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQBAMAAADt3eJSAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAbUExURdAAADCgWHAYAPh4APjIAPj4+BgYGPgoAP///+PC664AAAABYktHRAiG3pV6AAAACXBIWXMAAA7DAAAOwwHHb6hkAAAAB3RJTUUH6gUdCQIvh672IgAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyNi0wNS0yOVQwODoyMDo0OSswMDowMFodDlQAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjYtMDUtMjlUMDg6MjA6NDArMDA6MDC+2PM7AAAAKHRFWHRkYXRlOnRpbWVzdGFtcAAyMDI2LTA1LTI5VDA5OjAyOjQ3KzAwOjAwrWVcEwAAAGVJREFUCNc9zsENgDAMA8CECZpMACkwACoLtBYTlAkQrMD6KCDq10l+2ER/WERl0OCIlmNPLJbGXHpiXSvgiDvqi2mrp6NLP9BQga+arwtLoC7l+3BwhKUyBGIdUUx8S81EQnvxAGrnE5e2ebHeAAAAAElFTkSuQmCC'
+    },
+    speed: {
+        x: 56,
+        y: 12,
+        width: 16,
+        height: 16,
+        data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQBAMAAADt3eJSAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAtUExURQAAANAAADCgWBgYGHAYAGiIoPj4+JC48ABg+ChAMPjIAPh4APgoAFBoeP///3UmhZMAAAABdFJOUwBA5thmAAAAAWJLR0QOb70wTwAAAAlwSFlzAAAOwwAADsMBx2+oZAAAAAd0SU1FB+oFHRMBD4Zco48AAAAldEVYdGRhdGU6Y3JlYXRlADIwMjYtMDUtMjlUMTA6NTQ6NTUrMDA6MDC2y+NcAAAAJXRFWHRkYXRlOm1vZGlmeQAyMDI2LTA1LTI5VDA4OjIwOjQwKzAwOjAwvtjzOwAAACh0RVh0ZGF0ZTp0aW1lc3RhbXAAMjAyNi0wNS0yOVQxOTowMToxNSswMDowMAQiGSsAAABsSURBVAjXY2CAAUEoYBBSUjJxcXFWBDFM0yMmgxjKq/ZAGEoWHagiysZQEcuy9HIQQ3h6enlpR6chg3C7cWiH8UxDBuHJqywnr7I0ZBCyurnY6uZiEGPmZquZm0HaVxsprzYCGWispGSspAgAoLgj6HdswdIAAAAASUVORK5CYII='
+    },
+    bombCapacity: {
+        x: 39,
+        y: 13,
+        width: 16,
+        height: 16,
+        data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQBAMAAADt3eJSAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAeUExURdAAADCgWBgYGChAMFBoePj4+PgoAGiIoJC48P///8UaA3MAAAABYktHRAnx2aXsAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAAB3RJTUUH6gUdFRYQClpWXgAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyNi0wNS0yOVQxMDo1NDo1NSswMDowMLbL41wAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjYtMDUtMjlUMDg6MjA6NDArMDA6MDC+2PM7AAAAKHRFWHRkYXRlOnRpbWVzdGFtcAAyMDI2LTA1LTI5VDIxOjIyOjE2KzAwOjAwoPP3wgAAAGtJREFUCNc9ju0JgDAMRJNOEJ2gXnWBphPYgBuIcxTFCcS1xfpxvx4HxzuiL9y0QAchbqF9nD0x0rgNRYjDURZAyKWl7Dl6ctOZe4UnZ6tFVDDLtUlmGm8IliswVPWeM4ICjwJAJ6+0kf/FBY3+EmtiU+0fAAAAAElFTkSuQmCC'
+    }
 };
 /* ───────────── Bomberman player sprites ───────────── */
 const BOMBERMAN_PLAYER_SPRITES = {
@@ -521,6 +581,98 @@ const BOMBERMAN_EXPLOSION_SPRITES = {
             data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAASCAYAAABSO15qAAABSklEQVR42sWTr1PDMBTHP+UQlZO1lRETQXF1q8TOVTLPH8BNTiO4Qw5ZwzEJrrgcahGIyNk6KuuKyCU0WTck7y53yTff9837kQf/bckUKDM5LPs0wF7THt3q5KyAzOQAsOxTxAzKZ4s3t2A6KwIEQhexs1isvOD3i13O3J3jegGZyaGpbcj5PEfsGkwH+t0u04HYNeTz3EZUp14kCRSzAlrFulYAFMIAoIwAYFMVnuNSSWQmB7IirEyruLnbcHVdArD/bHh7XDPFCwSEEJiPLU2dUlZ9wHWYWKwwxniBy7gtYrGirLasaxWkUFZFUGDfxjgCV0ggSAHg8HUAOB/BmAhNdD62i/HBK4+EYueY89vGqMIunVOOtArd6mQyBVrF08M+gMqqP24j2BroVicSgigO9zCTdt9pJl8/OUzj3+Yt+oF/jvMUPjXOP567nnBaLj2vAAAAAElFTkSuQmCC'
         }
     },
+    blast: {
+        center: [
+            {
+                x: 32,
+                y: 72,
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA4UlEQVR4nJWTMRLCIBBFFyaFpWXSmdLSjrHzErmEbY5hGcc7cIl0tl7BDktvEGcTlllgmcTfkADvswu7qjUDkJ7QTzjWlz1A10Ak6+AzfufPM9wUTWsO8oU1EaM5SJOiumaJzAsZ3K/F8DeejibKmV04NcCUv3XxP5uj+1BkUIRZCqkJqqofxxyQTi5ITa9TfnFoQPDhCvC+Fw30KszHNFLR4E/p4Mjzpm8KXUoB91gnvAKZSEpfBi+xNUNUgdlzCjDVwJKCr6isD3yIqTiMTMUX5/oe+0nsRgYXu3GL0sb7AY0rZ6H0/Kl6AAAAAElFTkSuQmCC'
+            },
+            {
+                x: 112,
+                y: 72,
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA40lEQVR4nJVTMQ7CMAx0LAZGxnYrIz+o2PhEP9G1z2AE8Yd8go13sIWRH4DsxpHjEgInVVEa3/nsOG7bn0Bwg+lFa3PYAAwtQDemM7ifAXyAx/XJ2z0cHa0oxIz8AyR+pX8uyJS1IuJCv84zk/USfOBFyiA4Esgyi4CuX7uJIgJsLruZZDOX7Ou4oZ2b+PHQOrD7GIt8IJ8NrrnoRuWgFFy5CeSASlAGM1zIXTWdTYK2NAsfVAlWyLqiPYmZ63R/DZJOFgcK5VGk6bLlfCETuISFiED3QJWoXyTKqxKRmgtNJu4bNDhsjAJJPuoAAAAASUVORK5CYII='
+            },
+            {
+                x: 32,
+                y: 152,
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA6ElEQVR4nI1TMRKCMBC8ZCgsKaXDXzB2foIPWNLa+AdLLf0An7DzHXRY8oM4F1zmcjlGdoYhhNu9vbC4Q3MnxpsuYX8qidqKqO4ow/CY7/1In9cUl0e6OQ9yzjDICswrQF66byByLVy4cN3P3UG27BtjAC4KaHJ5TonT03bVjxTPIIEm6z3psK3Ir566JQIh1Ncd+fjAL6SItPwH3rS8ReTX2IUQQlbMonJPNlG1RXbCW75EIjAYYUGxNZ6qd0kO5HwWrCCNzW49ylJIBQhR9vxH8SJuCOWFBOKKq5hEiCz2cDEJOTHAvC/Ks2ZmjZsORQAAAABJRU5ErkJggg=='
+            },
+            {
+                x: 112,
+                y: 152,
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA0UlEQVR4nJWTwRWCMAyG0z4G4Ig3V9ANXIIFPDqBg/SGC7CEI+gIveENNojvLy220NryXfJo8/8JkAi+N0ygPdDC8UZJtJpjP9DnOVEViP8JfbGludQk+HXijbi+xg2mx6YLYQycOCWM8T6bIHjseLfY60buFSzYgrK4OnLWJoB9xo6z+Dljx+WvkEBG29plAJxJ7lsgb5Ujg8scvnj5jToczyIghk4rEmaZsAslo+ywU4hRrrBRDR5a9TNJDE1w1w8mzNvoDmDiiO2Ha92KUfwLuFCLiprjDJwAAAAASUVORK5CYII='
+            }
+        ],
+        segment: [
+            {
+                x: 48,
+                y: 72,
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAnklEQVR4nGNUtJjCQAlgokg31Q04xlDyHxsbGx8GGJ9bcPy3YuhhxKUAJgeiYQYhsxlBBiBrkHAUgLNf7P9A0AuM/yslMG0Ok2RgWPUcr0aY4Yz/zxtCDABpAGlEBsiG4JBjhBuAC2AzGEmOEWwALpuI8AYj1jBAU4QPMKLHAi6AHtWwqGSEpQOYBEwRshg+wIScKGAa0cXwemHAcyMA0fpTGHx5ENQAAAAASUVORK5CYII='
+            },
+            {
+                x: 128,
+                y: 72,
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAyUlEQVR4nGNUtJjCQAlgQuYcYyj5j42N14BjUIXINLoYNgNhfCZ0SQlHATBGV2zF0MOIrBbEB7EZ/1dKgAVe7P8ANwAZwMSxAZBaxv/nDf8zrHqOKhMmCaHRxdHlGRigBhACMIOQNDIoZEMNeD8HYsCDqSgScAATxyYHj8YHRGjGBh5MRQoDZOdh8wJMHmYJ1HBGWCxg+BFZMx55RhQDcEQdetQiq2N8bsFBVJJFT0gwMbABuCSJMZgJWTOIDcPoBsIAuhgjpdkZAKAMboGGprwiAAAAAElFTkSuQmCC'
+            },
+            {
+                x: 48,
+                y: 152,
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA20lEQVR4nGNUtJjCcIyh5L8VQw8jAwMDCpsYwARjgDSiG4RLE7Ic43MLDjBHwlEALPBi/wcMDSBDkTUhW8KIbgA6wGYgMmD8XykBMTlMElVm1XO8GhEGnDf8z6CQjSnzYCrCIGTD0dQy/n8/BxFYAskImQ9zEYbANKHLgw34/x9naBMEH+YiohGXAkKABUURshNBAOQFBSxySHoYwYEIAugBCfM/NjkkNYxgA9BDGjka0cXR1DDC0wEaIJSA4F6ApURcAFcmg/HhsQCTRFaEnAfQMxlMjhE9O5MKALs5b2JBrTeQAAAAAElFTkSuQmCC'
+            },
+            {
+                x: 128,
+                y: 152,
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA5klEQVR4nGN8bsHx34qhh5GBgYHhGEPJfwYogIkRAowgA2AcCUcBFMkX+z8wIBuIzQLG/5US/xnCJBG6Vj2H0DAxGB+HwYz/zxvCTQUDhWwGhgdTMd0KMgiLRYz/38/5D9dgcA5CXzBCGIYNIFnAAlcokIyqCJsYHExFGP7//Zz/GACbGLo8VA0jiGCgADBRohm7AR/mQjAugCbPhCEJC2F8hoDUQOVZUBTCND+AhjJMDhYbyBbgTEgMSAAWVTBNyKkSmqggSRkdYEvaaEkYlm9QMhO6JLpG9FwLUgc3ADn7EputQeoAjl+lvfd2ynAAAAAASUVORK5CYII='
+            }
+        ],
+        end: [
+            {
+                x: 64,
+                y: 72,
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAkklEQVR4nGNUtJjCQAlgokg3LgOOMZT8J9qAY0iKYWwrhh5GYg1kgSmGKSLFdhBgfG7BAdcg4SiAoeDF/g9wNrrL4AZIoGsMk0Tlr3oONwzdEBawZnQN6AAkDzUEHbDg1YykCdkrqAaswlQE8xK6JpxhwEAAYNOIcAGaQlA04tOADphAipE1oKcLQoBxcGYmUgAA3+c5XtE+f2cAAAAASUVORK5CYII='
+            },
+            {
+                x: 144,
+                y: 72,
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAwUlEQVR4nGNUtJjCQAlgOsZQ8h9dEF0Mmxq4AVYMPYzoCtHFYHxsBjE+t+DAaTo6QDYYxQAJRwEMxS/2fwDTIDkYG5shLGDNYZKoulc9B2sEgzBJBgk0Q1EMYEDXDNWEwV/1HKu3WBgUshkYHkyF8EBsZAATxwNYYE4G24JNA9RmbM6HGPAAhy1IToZpxhoL/yslcEYjeugjpwmMaHyBw4m4bIYBJmxOBNEwjNNUmAHoCtGTLSFDGCnOjRTpZmBgAAAhQ1I1DprO7gAAAABJRU5ErkJggg=='
+            },
+            {
+                x: 64,
+                y: 152,
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA6ElEQVR4nGNUtJjCQAlggjGOMZT8x8ZG5qOLgwDjcwsODEFcwIqhhxHDgP+VEjgNeLH/A4OEowCcjc0Qxv/nDSEGrHqOEA2TRDUJKofNEBYUTQrZELZAMgPDh7kMDA+mohgogWQIKDxABjGCXQDTCAMgA0DgghHCUJhhq56DDYG5ggnFVphGGADJwcTQLYECJrjJyADkfBBGdxEWwIJVFNlQBSxiWGMBGcBiBE9swMKAET0dwEIZFv9gQ5CiGFkzySmRAQpABsCikQlmGjYaPdUhi8G9gCs3wmxAZ6MDeG7E5kx0J2NTBwB7YGzn02LE2QAAAABJRU5ErkJggg=='
+            },
+            {
+                x: 144,
+                y: 152,
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA/0lEQVR4nI2TMRKCQAxFswyFJSV2eASsGDsvwQUsbW28g6V2cgEuYWeLR7DDTm6wzl/Iml0W5c0wG0LyyWwStSrOdKeDJsGGTgon/LD5lD6OVW2xMMnpNrECr1sn9RxhX1TpY+r8ncqlm1W3QWGuQhkBPwlke6LnZewfBCHWV/C+9hUkO6LH+psMIMC2BP667SvSkibXEDQP4DNkN7nG/cWjslEJI+0JIudtRoIEnYtmRXZV+EKdCrqqv0Scv4S875H94AeG/B7oQuyUhx6XQ+vYn9FkG4FCO+S0GXiwjGBgyMQw2VGemn8g98SPtcs0tW3+pjJ2F7DO/2ARKcx8ABLLsb2vKrzPAAAAAElFTkSuQmCC'
+            }
+        ]
+    },
     crosses: {
         thinLeft: {
             x: 3,
@@ -575,7 +727,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _renderers_svg__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../renderers/svg */ "./src/bomberman/renderers/svg.ts");
 /* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./constants */ "./src/bomberman/core/constants.ts");
 /* harmony import */ var _ai__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./ai */ "./src/bomberman/core/ai.ts");
-/* harmony import */ var _rules__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./rules */ "./src/bomberman/core/rules.ts");
+/* harmony import */ var _items__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./items */ "./src/bomberman/core/items.ts");
+/* harmony import */ var _rules__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./rules */ "./src/bomberman/core/rules.ts");
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -591,34 +744,48 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 
 
+
 const placePlayers = (store) => {
-    const playerOneStart = (0,_rules__WEBPACK_IMPORTED_MODULE_4__.findNearestEmptyCell)(store, { x: 0, y: 0 });
-    const playerTwoStart = (0,_rules__WEBPACK_IMPORTED_MODULE_4__.findNearestEmptyCell)(store, { x: _constants__WEBPACK_IMPORTED_MODULE_2__.GRID_WIDTH - 1, y: _constants__WEBPACK_IMPORTED_MODULE_2__.GRID_HEIGHT - 1 }, new Set([(0,_rules__WEBPACK_IMPORTED_MODULE_4__.positionKey)(playerOneStart)]));
+    const playerOneStart = { x: 0, y: 0 };
+    const playerTwoStart = { x: _constants__WEBPACK_IMPORTED_MODULE_2__.GRID_WIDTH - 1, y: _constants__WEBPACK_IMPORTED_MODULE_2__.GRID_HEIGHT - 1 };
     store.players = [
         createPlayer(1, 'Bomberman', playerOneStart, 'right', _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.idleDown.data),
         createPlayer(2, 'Plunder Bomber', playerTwoStart, 'left', _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.idleDown.data)
     ];
 };
+const clearPlayerSpawnAreas = (store) => {
+    (0,_rules__WEBPACK_IMPORTED_MODULE_5__.clearSpawnArea)(store, { x: 0, y: 0 });
+    (0,_rules__WEBPACK_IMPORTED_MODULE_5__.clearSpawnArea)(store, { x: _constants__WEBPACK_IMPORTED_MODULE_2__.GRID_WIDTH - 2, y: _constants__WEBPACK_IMPORTED_MODULE_2__.GRID_HEIGHT - 2 });
+};
 const createPlayer = (id, name, position, direction, sprite) => (Object.assign(Object.assign({ id,
-    name }, position), { alive: true, direction, bombsPlaced: 0, cellsDestroyed: 0, sprite }));
+    name }, position), { alive: true, direction, bombsPlaced: 0, cellsDestroyed: 0, blastRangeBonus: 0, bombCapacityBonus: 0, speedBonus: 0, movementStepProgress: 0, sprite, attackSide: randomAttackSide(), routePreference: randomRoutePreference() }));
+const randomAttackSide = () => (Math.random() < 0.5 ? 'left' : 'right');
+const randomRoutePreference = () => Math.random() < 0.5 ? 'horizontal-first' : 'vertical-first';
 const pushSnapshot = (store) => {
     store.gameHistory.push({
         players: store.players.map((player) => (Object.assign({}, player))),
         bombs: store.bombs.map((bomb) => (Object.assign({}, bomb))),
-        explosions: store.activeExplosions.map((explosion) => (Object.assign(Object.assign({}, explosion), { affectedCells: explosion.affectedCells.map((cell) => (Object.assign({}, cell))), hitPlayerIds: [...explosion.hitPlayerIds] })))
+        explosions: store.activeExplosions.map((explosion) => (Object.assign(Object.assign({}, explosion), { affectedCells: explosion.affectedCells.map((cell) => (Object.assign({}, cell))), hitPlayerIds: [...explosion.hitPlayerIds] }))),
+        items: store.items.map((item) => (Object.assign({}, item)))
     });
 };
 const updateGame = (store) => {
     store.frameCount++;
-    (0,_rules__WEBPACK_IMPORTED_MODULE_4__.updateExplosions)(store);
-    (0,_rules__WEBPACK_IMPORTED_MODULE_4__.updateBombs)(store);
+    (0,_rules__WEBPACK_IMPORTED_MODULE_5__.updateExplosions)(store);
+    (0,_rules__WEBPACK_IMPORTED_MODULE_5__.updateBombs)(store);
+    (0,_rules__WEBPACK_IMPORTED_MODULE_5__.killPlayersInActiveExplosions)(store);
     for (const player of store.players) {
         if (!player.alive)
             continue;
-        if ((0,_rules__WEBPACK_IMPORTED_MODULE_4__.canPlaceBomb)(store, player) && (0,_ai__WEBPACK_IMPORTED_MODULE_3__.shouldPlaceBomb)(store, player)) {
-            (0,_rules__WEBPACK_IMPORTED_MODULE_4__.placeBomb)(store, player);
+        if ((0,_rules__WEBPACK_IMPORTED_MODULE_5__.canPlaceBomb)(store, player) && (0,_ai__WEBPACK_IMPORTED_MODULE_3__.shouldPlaceBomb)(store, player)) {
+            (0,_rules__WEBPACK_IMPORTED_MODULE_5__.placeBomb)(store, player);
         }
-        (0,_ai__WEBPACK_IMPORTED_MODULE_3__.movePlayer)(store, player);
+        const moveCount = (0,_items__WEBPACK_IMPORTED_MODULE_4__.getPlayerMoveCount)(player);
+        for (let moveIndex = 0; moveIndex < moveCount && player.alive; moveIndex++) {
+            (0,_ai__WEBPACK_IMPORTED_MODULE_3__.movePlayer)(store, player);
+            (0,_items__WEBPACK_IMPORTED_MODULE_4__.collectVisibleItemsAt)(store, player);
+            (0,_rules__WEBPACK_IMPORTED_MODULE_5__.killPlayersInActiveExplosions)(store);
+        }
     }
     pushSnapshot(store);
 };
@@ -626,16 +793,18 @@ const appendDeathAnimationSnapshots = (store) => {
     if (store.players.every((player) => player.alive))
         return;
     for (let frame = 1; frame < _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_DEATH_ANIMATION_FRAMES; frame++) {
-        (0,_rules__WEBPACK_IMPORTED_MODULE_4__.updateExplosions)(store);
+        (0,_rules__WEBPACK_IMPORTED_MODULE_5__.updateExplosions)(store);
         pushSnapshot(store);
     }
 };
 const resetGameState = (store) => {
     store.frameCount = 0;
     store.nextBombId = 0;
+    store.nextItemId = 0;
     store.players = [];
     store.bombs = [];
     store.activeExplosions = [];
+    store.items = [];
     store.gameHistory = [];
     store.cellEvents = [];
     store.explosionEvents = [];
@@ -646,12 +815,12 @@ const stopGame = (store) => __awaiter(void 0, void 0, void 0, function* () {
 const startGame = (store) => __awaiter(void 0, void 0, void 0, function* () {
     resetGameState(store);
     store.grid = _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__.Utils.createGridFromData(store);
+    clearPlayerSpawnAreas(store);
     store.initialColors = store.grid.map((col) => col.map((cell) => cell.color));
+    (0,_items__WEBPACK_IMPORTED_MODULE_4__.createHiddenItems)(store);
     placePlayers(store);
     pushSnapshot(store);
-    while ((0,_rules__WEBPACK_IMPORTED_MODULE_4__.countRemainingContributions)(store) > 0 &&
-        store.players.filter((player) => player.alive).length > 1 &&
-        store.frameCount < _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_MAX_FRAMES) {
+    while (store.players.filter((player) => player.alive).length > 1 && store.frameCount < _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_MAX_FRAMES) {
         updateGame(store);
     }
     appendDeathAnimationSnapshots(store);
@@ -669,6 +838,129 @@ const startGame = (store) => __awaiter(void 0, void 0, void 0, function* () {
 const Game = {
     startGame,
     stopGame
+};
+
+
+/***/ },
+
+/***/ "./src/bomberman/core/items.ts"
+/*!*************************************!*\
+  !*** ./src/bomberman/core/items.ts ***!
+  \*************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   BOMBERMAN_ITEM_DEFINITIONS: () => (/* binding */ BOMBERMAN_ITEM_DEFINITIONS),
+/* harmony export */   collectVisibleItemsAt: () => (/* binding */ collectVisibleItemsAt),
+/* harmony export */   createHiddenItems: () => (/* binding */ createHiddenItems),
+/* harmony export */   destroyVisibleItemAt: () => (/* binding */ destroyVisibleItemAt),
+/* harmony export */   getItemDropChance: () => (/* binding */ getItemDropChance),
+/* harmony export */   getPlayerBlastRange: () => (/* binding */ getPlayerBlastRange),
+/* harmony export */   getPlayerBombLimit: () => (/* binding */ getPlayerBombLimit),
+/* harmony export */   getPlayerMoveCount: () => (/* binding */ getPlayerMoveCount),
+/* harmony export */   hasVisibleItemAt: () => (/* binding */ hasVisibleItemAt),
+/* harmony export */   revealItemAt: () => (/* binding */ revealItemAt)
+/* harmony export */ });
+/* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./constants */ "./src/bomberman/core/constants.ts");
+
+const BOMBERMAN_ITEM_DEFINITIONS = {
+    'blast-range': {
+        type: 'blast-range',
+        sprite: _constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_ITEM_SPRITES.blastRange,
+        apply: (player) => {
+            var _a;
+            player.blastRangeBonus = ((_a = player.blastRangeBonus) !== null && _a !== void 0 ? _a : 0) + 1;
+        }
+    },
+    speed: {
+        type: 'speed',
+        sprite: _constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_ITEM_SPRITES.speed,
+        apply: (player) => {
+            var _a;
+            player.speedBonus = ((_a = player.speedBonus) !== null && _a !== void 0 ? _a : 0) + _constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_SPEED_ITEM_BONUS;
+        }
+    },
+    'bomb-capacity': {
+        type: 'bomb-capacity',
+        sprite: _constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_ITEM_SPRITES.bombCapacity,
+        apply: (player) => {
+            var _a;
+            player.bombCapacityBonus = ((_a = player.bombCapacityBonus) !== null && _a !== void 0 ? _a : 0) + 1;
+        }
+    }
+};
+const getPlayerBlastRange = (player) => { var _a; return _constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_BLAST_RANGE + ((_a = player.blastRangeBonus) !== null && _a !== void 0 ? _a : 0); };
+const getPlayerBombLimit = (player) => { var _a; return _constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_BOMB_LIMIT + ((_a = player.bombCapacityBonus) !== null && _a !== void 0 ? _a : 0); };
+const getPlayerMoveCount = (player) => {
+    var _a, _b;
+    const speedUnits = _constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_PLAYER_SPEED_UNITS + ((_a = player.speedBonus) !== null && _a !== void 0 ? _a : 0);
+    const progress = ((_b = player.movementStepProgress) !== null && _b !== void 0 ? _b : 0) + speedUnits;
+    const moveCount = Math.floor(progress / _constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_PLAYER_SPEED_UNITS);
+    player.movementStepProgress = progress % _constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_PLAYER_SPEED_UNITS;
+    return Math.max(1, moveCount);
+};
+const getItemDropChance = (cell) => cell.commitsCount > 0 ? _constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_ITEM_DROP_CHANCE_BY_LEVEL[cell.level] : 0;
+const createHiddenItems = (store) => {
+    store.items = [];
+    for (let x = 0; x < store.grid.length; x++) {
+        for (let y = 0; y < store.grid[x].length; y++) {
+            const cell = store.grid[x][y];
+            const dropChance = getItemDropChance(cell);
+            if (dropChance <= 0 || Math.random() >= dropChance)
+                continue;
+            store.items.push(createItem(store, { x, y }, selectRandomItemType()));
+        }
+    }
+};
+const revealItemAt = (store, position) => {
+    const item = findItemAt(store, position);
+    if (!item || item.collected || item.destroyed)
+        return null;
+    item.hidden = false;
+    return item;
+};
+const collectVisibleItemsAt = (store, player) => {
+    const item = findItemAt(store, player);
+    if (!item || item.hidden || item.collected || item.destroyed)
+        return null;
+    BOMBERMAN_ITEM_DEFINITIONS[item.type].apply(player);
+    item.collected = true;
+    return item;
+};
+const destroyVisibleItemAt = (store, position) => {
+    const item = findItemAt(store, position);
+    if (!item || item.hidden || item.collected || item.destroyed)
+        return null;
+    item.destroyed = true;
+    return item;
+};
+const hasVisibleItemAt = (store, position) => {
+    const item = findItemAt(store, position);
+    return Boolean(item && !item.hidden && !item.collected && !item.destroyed);
+};
+const createItem = (store, position, type) => {
+    const definition = BOMBERMAN_ITEM_DEFINITIONS[type];
+    return {
+        id: store.nextItemId++,
+        type,
+        x: position.x,
+        y: position.y,
+        hidden: true,
+        collected: false,
+        destroyed: false,
+        sprite: definition.sprite.data
+    };
+};
+const selectRandomItemType = () => {
+    var _a;
+    const itemTypes = Object.keys(BOMBERMAN_ITEM_DEFINITIONS);
+    return (_a = itemTypes[Math.floor(Math.random() * itemTypes.length)]) !== null && _a !== void 0 ? _a : 'blast-range';
+};
+const findItemAt = (store, position) => {
+    if (position.x < 0 || position.x >= _constants__WEBPACK_IMPORTED_MODULE_0__.GRID_WIDTH || position.y < 0 || position.y >= _constants__WEBPACK_IMPORTED_MODULE_0__.GRID_HEIGHT)
+        return undefined;
+    return store.items.find((item) => !item.collected && !item.destroyed && item.x === position.x && item.y === position.y);
 };
 
 
@@ -693,7 +985,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   sortPathOptions: () => (/* binding */ sortPathOptions)
 /* harmony export */ });
 /* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./constants */ "./src/bomberman/core/constants.ts");
-/* harmony import */ var _rules__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./rules */ "./src/bomberman/core/rules.ts");
+/* harmony import */ var _items__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./items */ "./src/bomberman/core/items.ts");
+/* harmony import */ var _rules__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./rules */ "./src/bomberman/core/rules.ts");
+
 
 
 
@@ -704,20 +998,42 @@ const getPreviousPlayerPosition = (store, playerId) => {
 };
 const isBacktrackingStep = (store, player, next) => {
     const previousPosition = getPreviousPlayerPosition(store, player.id);
-    return Boolean(previousPosition && (0,_rules__WEBPACK_IMPORTED_MODULE_1__.samePosition)(previousPosition, next));
+    return Boolean(previousPosition && (0,_rules__WEBPACK_IMPORTED_MODULE_2__.samePosition)(previousPosition, next));
 };
 const sortPathOptions = (positions, options) => positions.sort((a, b) => {
-    const aBacktracks = options.avoidFirstStep && (0,_rules__WEBPACK_IMPORTED_MODULE_1__.samePosition)(a, options.avoidFirstStep) ? 1 : 0;
-    const bBacktracks = options.avoidFirstStep && (0,_rules__WEBPACK_IMPORTED_MODULE_1__.samePosition)(b, options.avoidFirstStep) ? 1 : 0;
+    const aBacktracks = options.avoidFirstStep && (0,_rules__WEBPACK_IMPORTED_MODULE_2__.samePosition)(a, options.avoidFirstStep) ? 1 : 0;
+    const bBacktracks = options.avoidFirstStep && (0,_rules__WEBPACK_IMPORTED_MODULE_2__.samePosition)(b, options.avoidFirstStep) ? 1 : 0;
     if (aBacktracks !== bBacktracks)
         return aBacktracks - bBacktracks;
-    if (options.target)
-        return (0,_rules__WEBPACK_IMPORTED_MODULE_1__.manhattan)(a, options.target) - (0,_rules__WEBPACK_IMPORTED_MODULE_1__.manhattan)(b, options.target);
+    if (options.target) {
+        const distanceDiff = (0,_rules__WEBPACK_IMPORTED_MODULE_2__.manhattan)(a, options.target) - (0,_rules__WEBPACK_IMPORTED_MODULE_2__.manhattan)(b, options.target);
+        if (distanceDiff !== 0)
+            return distanceDiff;
+        const axisDiff = routeAxisRank(a, options) - routeAxisRank(b, options);
+        if (axisDiff !== 0)
+            return axisDiff;
+        const sideDiff = attackSideRank(a, options) - attackSideRank(b, options);
+        if (sideDiff !== 0)
+            return sideDiff;
+    }
     return 0;
 });
+const routeAxisRank = (position, options) => {
+    if (!options.origin || !options.routePreference)
+        return 0;
+    const axis = position.x !== options.origin.x ? 'horizontal-first' : 'vertical-first';
+    return axis === options.routePreference ? 0 : 1;
+};
+const attackSideRank = (position, options) => {
+    if (!options.attackSide || !options.target)
+        return 0;
+    if (options.attackSide === 'left')
+        return position.x <= options.target.x ? 0 : 1;
+    return position.x >= options.target.x ? 0 : 1;
+};
 const findPathToTarget = (store, start, isTarget, options = {}) => {
     var _a;
-    const visited = new Set([(0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(start)]);
+    const visited = new Set([(0,_rules__WEBPACK_IMPORTED_MODULE_2__.positionKey)(start)]);
     const queue = [
         { position: start, firstStep: null, distance: 0 }
     ];
@@ -731,10 +1047,17 @@ const findPathToTarget = (store, start, isTarget, options = {}) => {
                 distance: current.distance
             };
         }
-        const nextPositions = sortPathOptions((0,_rules__WEBPACK_IMPORTED_MODULE_1__.getAdjacentPositions)(current.position), current.firstStep ? { target: options.target } : options);
+        const nextPositions = sortPathOptions((0,_rules__WEBPACK_IMPORTED_MODULE_2__.getAdjacentPositions)(current.position), current.firstStep
+            ? {
+                attackSide: options.attackSide,
+                origin: current.position,
+                routePreference: options.routePreference,
+                target: options.target
+            }
+            : Object.assign(Object.assign({}, options), { origin: current.position }));
         for (const next of nextPositions) {
-            const key = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(next);
-            if (visited.has(key) || !(0,_rules__WEBPACK_IMPORTED_MODULE_1__.isPassableCell)(store, next))
+            const key = (0,_rules__WEBPACK_IMPORTED_MODULE_2__.positionKey)(next);
+            if (visited.has(key) || !(0,_rules__WEBPACK_IMPORTED_MODULE_2__.isPassableCell)(store, next))
                 continue;
             visited.add(key);
             queue.push({
@@ -749,13 +1072,13 @@ const findPathToTarget = (store, start, isTarget, options = {}) => {
 const estimateFastestRoute = (store, start, target, openedCells = new Set()) => {
     var _a;
     const queue = [{ position: start, firstStep: null, distance: 0, cost: 0, blastedCells: 0 }];
-    const bestCosts = new Map([[(0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(start), 0]]);
+    const bestCosts = new Map([[(0,_rules__WEBPACK_IMPORTED_MODULE_2__.positionKey)(start), 0]]);
     while (queue.length > 0) {
-        queue.sort((a, b) => a.cost - b.cost || (0,_rules__WEBPACK_IMPORTED_MODULE_1__.manhattan)(a.position, target) - (0,_rules__WEBPACK_IMPORTED_MODULE_1__.manhattan)(b.position, target));
+        queue.sort((a, b) => a.cost - b.cost || (0,_rules__WEBPACK_IMPORTED_MODULE_2__.manhattan)(a.position, target) - (0,_rules__WEBPACK_IMPORTED_MODULE_2__.manhattan)(b.position, target));
         const current = queue.shift();
         if (!current)
             break;
-        if (current.firstStep && (0,_rules__WEBPACK_IMPORTED_MODULE_1__.samePosition)(current.position, target)) {
+        if (current.firstStep && (0,_rules__WEBPACK_IMPORTED_MODULE_2__.samePosition)(current.position, target)) {
             return {
                 firstStep: current.firstStep,
                 distance: current.distance,
@@ -763,13 +1086,13 @@ const estimateFastestRoute = (store, start, target, openedCells = new Set()) => 
                 blastedCells: current.blastedCells
             };
         }
-        for (const next of (0,_rules__WEBPACK_IMPORTED_MODULE_1__.getAdjacentPositions)(current.position)) {
-            if ((0,_rules__WEBPACK_IMPORTED_MODULE_1__.bombAt)(store, next) || (0,_rules__WEBPACK_IMPORTED_MODULE_1__.isActiveExplosionCell)(store, next))
+        for (const next of (0,_rules__WEBPACK_IMPORTED_MODULE_2__.getAdjacentPositions)(current.position)) {
+            if ((0,_rules__WEBPACK_IMPORTED_MODULE_2__.bombAt)(store, next) || (0,_rules__WEBPACK_IMPORTED_MODULE_2__.isActiveExplosionCell)(store, next))
                 continue;
-            const key = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(next);
+            const key = (0,_rules__WEBPACK_IMPORTED_MODULE_2__.positionKey)(next);
             const opened = openedCells.has(key);
-            const contribution = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.isContributionCell)(store, next) && !opened;
-            const walkable = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.isEmptyCell)(store, next) || opened || contribution || (0,_rules__WEBPACK_IMPORTED_MODULE_1__.samePosition)(next, target);
+            const contribution = (0,_rules__WEBPACK_IMPORTED_MODULE_2__.isContributionCell)(store, next) && !opened;
+            const walkable = (0,_rules__WEBPACK_IMPORTED_MODULE_2__.isEmptyCell)(store, next) || opened || contribution || (0,_rules__WEBPACK_IMPORTED_MODULE_2__.samePosition)(next, target);
             if (!walkable)
                 continue;
             const stepCost = contribution ? _constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_PATH_BLAST_COST : 1;
@@ -795,26 +1118,26 @@ const findEscapeStep = (store, player) => {
     const queue = [
         { position: player, firstStep: null, depth: 0 }
     ];
-    const visited = new Set([(0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(player)]);
+    const visited = new Set([(0,_rules__WEBPACK_IMPORTED_MODULE_2__.positionKey)(player)]);
     while (queue.length > 0) {
         const current = queue.shift();
         if (!current)
             break;
-        if (current.firstStep && (0,_rules__WEBPACK_IMPORTED_MODULE_1__.isSafeStandingCell)(store, player, current.position))
+        if (current.firstStep && (0,_rules__WEBPACK_IMPORTED_MODULE_2__.isSafeStandingCell)(store, player, current.position))
             return current.firstStep;
         if (current.depth >= maxDepth)
             continue;
-        const nextPositions = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.getAdjacentPositions)(current.position).sort((a, b) => {
-            const aThreats = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.bombsThreateningAt)(store, a, player.id).length;
-            const bThreats = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.bombsThreateningAt)(store, b, player.id).length;
+        const nextPositions = (0,_rules__WEBPACK_IMPORTED_MODULE_2__.getAdjacentPositions)(current.position).sort((a, b) => {
+            const aThreats = (0,_rules__WEBPACK_IMPORTED_MODULE_2__.bombsThreateningAt)(store, a, player.id).length;
+            const bThreats = (0,_rules__WEBPACK_IMPORTED_MODULE_2__.bombsThreateningAt)(store, b, player.id).length;
             return aThreats - bThreats;
         });
         for (const next of nextPositions) {
-            const key = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(next);
-            if (visited.has(key) || !(0,_rules__WEBPACK_IMPORTED_MODULE_1__.isEmptyCell)(store, next) || (0,_rules__WEBPACK_IMPORTED_MODULE_1__.bombAt)(store, next) || (0,_rules__WEBPACK_IMPORTED_MODULE_1__.isActiveExplosionCell)(store, next, player.id))
+            const key = (0,_rules__WEBPACK_IMPORTED_MODULE_2__.positionKey)(next);
+            if (visited.has(key) || !(0,_rules__WEBPACK_IMPORTED_MODULE_2__.isEmptyCell)(store, next) || (0,_rules__WEBPACK_IMPORTED_MODULE_2__.bombAt)(store, next) || (0,_rules__WEBPACK_IMPORTED_MODULE_2__.isActiveExplosionCell)(store, next, player.id))
                 continue;
             const nextDepth = current.depth + 1;
-            const explodesBeforeNextMove = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.bombsThreateningAt)(store, next, player.id).some((bomb) => bomb.timer <= nextDepth);
+            const explodesBeforeNextMove = (0,_rules__WEBPACK_IMPORTED_MODULE_2__.bombsThreateningAt)(store, next, player.id).some((bomb) => bomb.timer <= nextDepth);
             if (explodesBeforeNextMove)
                 continue;
             visited.add(key);
@@ -829,7 +1152,7 @@ const findEscapeStep = (store, player) => {
 };
 const findReachableBombOrigins = (store, player) => {
     var _a;
-    const visited = new Set([(0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(player)]);
+    const visited = new Set([(0,_rules__WEBPACK_IMPORTED_MODULE_2__.positionKey)(player)]);
     const queue = [{ position: player, firstStep: null, distance: 0 }];
     const origins = [];
     const previousPosition = getPreviousPlayerPosition(store, player.id);
@@ -838,13 +1161,25 @@ const findReachableBombOrigins = (store, player) => {
         if (!current)
             break;
         origins.push(current);
-        const nextPositions = sortPathOptions((0,_rules__WEBPACK_IMPORTED_MODULE_1__.getAdjacentPositions)(current.position), current.firstStep ? { target: player } : { avoidFirstStep: previousPosition, target: player });
+        const nextPositions = sortPathOptions((0,_rules__WEBPACK_IMPORTED_MODULE_2__.getAdjacentPositions)(current.position), current.firstStep
+            ? {
+                attackSide: player.attackSide,
+                origin: current.position,
+                routePreference: player.routePreference,
+                target: player
+            }
+            : {
+                attackSide: player.attackSide,
+                avoidFirstStep: previousPosition,
+                origin: current.position,
+                routePreference: player.routePreference,
+                target: player
+            });
         for (const next of nextPositions) {
-            const key = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(next);
+            const key = (0,_rules__WEBPACK_IMPORTED_MODULE_2__.positionKey)(next);
             if (visited.has(key) ||
-                !(0,_rules__WEBPACK_IMPORTED_MODULE_1__.isPassableCell)(store, next) ||
-                (0,_rules__WEBPACK_IMPORTED_MODULE_1__.isActiveExplosionCell)(store, next, player.id) ||
-                (0,_rules__WEBPACK_IMPORTED_MODULE_1__.isInOwnFutureBlast)(store, player, next)) {
+                !(0,_rules__WEBPACK_IMPORTED_MODULE_2__.isPassableCell)(store, next) ||
+                (0,_rules__WEBPACK_IMPORTED_MODULE_2__.isOwnExplosionDangerCell)(store, player, next)) {
                 continue;
             }
             visited.add(key);
@@ -858,7 +1193,7 @@ const findReachableBombOrigins = (store, player) => {
     return origins;
 };
 const canEscapeAfterPlantingBombAt = (store, player, position) => {
-    if (!(0,_rules__WEBPACK_IMPORTED_MODULE_1__.isEmptyCell)(store, position) || (0,_rules__WEBPACK_IMPORTED_MODULE_1__.bombAt)(store, position))
+    if (!(0,_rules__WEBPACK_IMPORTED_MODULE_2__.isEmptyCell)(store, position) || (0,_rules__WEBPACK_IMPORTED_MODULE_2__.bombAt)(store, position))
         return false;
     const virtualBomb = {
         id: -1,
@@ -867,6 +1202,7 @@ const canEscapeAfterPlantingBombAt = (store, player, position) => {
         y: position.y,
         timer: _constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_BOMB_FUSE_FRAMES,
         exploded: false,
+        blastRange: (0,_items__WEBPACK_IMPORTED_MODULE_1__.getPlayerBlastRange)(player),
         sprite: ''
     };
     const virtualPlayer = Object.assign(Object.assign({}, player), { x: position.x, y: position.y });
@@ -898,9 +1234,12 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   bombWouldHitContribution: () => (/* binding */ bombWouldHitContribution),
 /* harmony export */   bombWouldHitOpponent: () => (/* binding */ bombWouldHitOpponent),
 /* harmony export */   bombWouldHitTarget: () => (/* binding */ bombWouldHitTarget),
+/* harmony export */   bombWouldHitVisibleItem: () => (/* binding */ bombWouldHitVisibleItem),
 /* harmony export */   bombsThreateningAt: () => (/* binding */ bombsThreateningAt),
 /* harmony export */   canPlaceBomb: () => (/* binding */ canPlaceBomb),
 /* harmony export */   clearContributionCell: () => (/* binding */ clearContributionCell),
+/* harmony export */   clearContributionCellSilently: () => (/* binding */ clearContributionCellSilently),
+/* harmony export */   clearSpawnArea: () => (/* binding */ clearSpawnArea),
 /* harmony export */   countRemainingContributions: () => (/* binding */ countRemainingContributions),
 /* harmony export */   explodeBomb: () => (/* binding */ explodeBomb),
 /* harmony export */   findNearestEmptyCell: () => (/* binding */ findNearestEmptyCell),
@@ -911,8 +1250,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   isContributionCell: () => (/* binding */ isContributionCell),
 /* harmony export */   isEmptyCell: () => (/* binding */ isEmptyCell),
 /* harmony export */   isInOwnFutureBlast: () => (/* binding */ isInOwnFutureBlast),
+/* harmony export */   isOwnExplosionDangerCell: () => (/* binding */ isOwnExplosionDangerCell),
 /* harmony export */   isPassableCell: () => (/* binding */ isPassableCell),
 /* harmony export */   isSafeStandingCell: () => (/* binding */ isSafeStandingCell),
+/* harmony export */   killPlayersInActiveExplosions: () => (/* binding */ killPlayersInActiveExplosions),
 /* harmony export */   manhattan: () => (/* binding */ manhattan),
 /* harmony export */   placeBomb: () => (/* binding */ placeBomb),
 /* harmony export */   positionKey: () => (/* binding */ positionKey),
@@ -922,6 +1263,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../shared/utils/utils */ "./src/shared/utils/utils.ts");
 /* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./constants */ "./src/bomberman/core/constants.ts");
+/* harmony import */ var _items__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./items */ "./src/bomberman/core/items.ts");
+
 
 
 const DIRECTIONS = [
@@ -937,29 +1280,60 @@ const inBounds = ({ x, y }) => x >= 0 && x < _constants__WEBPACK_IMPORTED_MODULE
 const isContributionCell = (store, { x, y }) => inBounds({ x, y }) && store.grid[x][y].commitsCount > 0;
 const isEmptyCell = (store, { x, y }) => inBounds({ x, y }) && store.grid[x][y].commitsCount === 0;
 const bombAt = (store, { x, y }) => store.bombs.find((bomb) => !bomb.exploded && bomb.x === x && bomb.y === y);
-const isPassableCell = (store, position) => isEmptyCell(store, position) && !bombAt(store, position);
-const getBlastCells = (position) => [
-    position,
-    ...DIRECTIONS.map((direction) => ({
-        x: position.x + direction.x * _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_BLAST_RANGE,
-        y: position.y + direction.y * _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_BLAST_RANGE
-    })).filter(inBounds)
-];
 const isActiveExplosionCell = (store, position, ownerId) => store.activeExplosions.some((explosion) => (ownerId === undefined || explosion.ownerId === ownerId) && explosion.affectedCells.some((cell) => samePosition(cell, position)));
+const isPassableCell = (store, position) => isEmptyCell(store, position) && !bombAt(store, position) && !isActiveExplosionCell(store, position);
+const getBlastCells = (store, position, blastRange = _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_BLAST_RANGE) => {
+    const cells = [position];
+    for (const direction of DIRECTIONS) {
+        for (let distance = 1; distance <= blastRange; distance++) {
+            const cell = {
+                x: position.x + direction.x * distance,
+                y: position.y + direction.y * distance
+            };
+            if (!inBounds(cell))
+                break;
+            cells.push(cell);
+            if (isContributionCell(store, cell))
+                break;
+        }
+    }
+    return cells;
+};
 const bombsThreateningAt = (store, position, ownerId) => store.bombs.filter((bomb) => !bomb.exploded &&
     (ownerId === undefined || bomb.ownerId === ownerId) &&
-    getBlastCells(bomb).some((cell) => samePosition(cell, position)));
+    getBlastCells(store, bomb, bomb.blastRange).some((cell) => samePosition(cell, position)));
 const isInOwnFutureBlast = (store, player, position) => bombsThreateningAt(store, position, player.id).length > 0;
+const isOwnExplosionDangerCell = (store, player, position) => isActiveExplosionCell(store, position, player.id) || isInOwnFutureBlast(store, player, position);
 const isSafeStandingCell = (store, player, position) => isEmptyCell(store, position) &&
     !bombAt(store, position) &&
-    !isActiveExplosionCell(store, position, player.id) &&
-    !isInOwnFutureBlast(store, player, position);
+    !isActiveExplosionCell(store, position) &&
+    !isOwnExplosionDangerCell(store, player, position);
 const getAdjacentPositions = ({ x, y }) => DIRECTIONS.map((delta) => ({
     x: x + delta.x,
     y: y + delta.y,
     direction: delta.direction
 })).filter(inBounds);
 const countRemainingContributions = (store) => store.grid.reduce((sum, col) => sum + col.filter((cell) => cell.commitsCount > 0).length, 0);
+const clearContributionCellSilently = (store, position) => {
+    if (!isContributionCell(store, position))
+        return false;
+    const theme = _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__.Utils.getCurrentTheme(store);
+    store.grid[position.x][position.y] = {
+        commitsCount: 0,
+        level: 'NONE',
+        color: theme.intensityColors[0]
+    };
+    return true;
+};
+const clearSpawnArea = (store, topLeft) => {
+    for (let x = topLeft.x; x < topLeft.x + 2; x++) {
+        for (let y = topLeft.y; y < topLeft.y + 2; y++) {
+            const position = { x, y };
+            if (inBounds(position))
+                clearContributionCellSilently(store, position);
+        }
+    }
+};
 const findNearestEmptyCell = (store, origin, blocked = new Set()) => {
     let best = null;
     let bestDistance = Number.POSITIVE_INFINITY;
@@ -980,13 +1354,14 @@ const findNearestEmptyCell = (store, origin, blocked = new Set()) => {
 const canPlaceBomb = (store, player) => player.alive &&
     isEmptyCell(store, player) &&
     !bombAt(store, player) &&
-    !store.bombs.some((bomb) => !bomb.exploded && bomb.ownerId === player.id);
-const bombWouldHitContribution = (store, position) => getBlastCells(position).some((cell) => isContributionCell(store, cell));
+    store.bombs.filter((bomb) => !bomb.exploded && bomb.ownerId === player.id).length < (0,_items__WEBPACK_IMPORTED_MODULE_2__.getPlayerBombLimit)(player);
+const bombWouldHitContribution = (store, position, blastRange = _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_BLAST_RANGE) => getBlastCells(store, position, blastRange).some((cell) => isContributionCell(store, cell));
+const bombWouldHitVisibleItem = (store, position, blastRange = _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_BLAST_RANGE) => getBlastCells(store, position, blastRange).some((cell) => (0,_items__WEBPACK_IMPORTED_MODULE_2__.hasVisibleItemAt)(store, cell));
 const bombWouldHitOpponent = (store, player) => {
     const opponent = store.players.find((candidate) => candidate.id !== player.id && candidate.alive);
-    return Boolean(opponent && getBlastCells(player).some((cell) => samePosition(cell, opponent)));
+    return Boolean(opponent && getBlastCells(store, player, (0,_items__WEBPACK_IMPORTED_MODULE_2__.getPlayerBlastRange)(player)).some((cell) => samePosition(cell, opponent)));
 };
-const bombWouldHitTarget = (store, player) => bombWouldHitContribution(store, player) || bombWouldHitOpponent(store, player);
+const bombWouldHitTarget = (store, player) => bombWouldHitContribution(store, player, (0,_items__WEBPACK_IMPORTED_MODULE_2__.getPlayerBlastRange)(player)) || bombWouldHitOpponent(store, player);
 const placeBomb = (store, player) => {
     if (!canPlaceBomb(store, player))
         return;
@@ -997,6 +1372,7 @@ const placeBomb = (store, player) => {
         y: player.y,
         timer: _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_BOMB_FUSE_FRAMES,
         exploded: false,
+        blastRange: (0,_items__WEBPACK_IMPORTED_MODULE_2__.getPlayerBlastRange)(player),
         sprite: _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.explosions.bombs.fuse0.data
     });
     player.bombsPlaced++;
@@ -1013,6 +1389,7 @@ const clearContributionCell = (store, position, ownerId) => {
     const owner = store.players.find((player) => player.id === ownerId);
     if (owner)
         owner.cellsDestroyed++;
+    (0,_items__WEBPACK_IMPORTED_MODULE_2__.revealItemAt)(store, position);
     store.cellEvents.push({
         frameIndex: store.gameHistory.length,
         x: position.x,
@@ -1026,17 +1403,15 @@ const explodeBomb = (store, bomb) => {
     if (bomb.exploded)
         return;
     bomb.exploded = true;
-    const affectedCells = [{ x: bomb.x, y: bomb.y }];
+    const affectedCells = getBlastCells(store, bomb, bomb.blastRange);
     const hitPlayerIds = [];
-    for (const direction of DIRECTIONS) {
-        const position = {
-            x: bomb.x + direction.x * _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_BLAST_RANGE,
-            y: bomb.y + direction.y * _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_BLAST_RANGE
-        };
-        if (!inBounds(position))
-            continue;
-        affectedCells.push(position);
-        clearContributionCell(store, position, bomb.ownerId);
+    for (const position of affectedCells) {
+        if (isContributionCell(store, position)) {
+            clearContributionCell(store, position, bomb.ownerId);
+        }
+        else {
+            (0,_items__WEBPACK_IMPORTED_MODULE_2__.destroyVisibleItemAt)(store, position);
+        }
         const chainedBomb = bombAt(store, position);
         if (chainedBomb)
             explodeBomb(store, chainedBomb);
@@ -1054,6 +1429,7 @@ const explodeBomb = (store, bomb) => {
         ownerId: bomb.ownerId,
         x: bomb.x,
         y: bomb.y,
+        blastRange: bomb.blastRange,
         remainingFrames: _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_EXPLOSION_DURATION_FRAMES,
         affectedCells,
         hitPlayerIds,
@@ -1061,6 +1437,20 @@ const explodeBomb = (store, bomb) => {
     };
     store.activeExplosions.push(explosion);
     store.explosionEvents.push(Object.assign({ frameIndex: store.gameHistory.length }, explosion));
+};
+const killPlayersInActiveExplosions = (store) => {
+    for (const player of store.players) {
+        if (!player.alive)
+            continue;
+        for (const explosion of store.activeExplosions) {
+            if (!explosion.affectedCells.some((position) => samePosition(position, player)))
+                continue;
+            player.alive = false;
+            if (!explosion.hitPlayerIds.includes(player.id))
+                explosion.hitPlayerIds.push(player.id);
+            break;
+        }
+    }
 };
 const updateBombs = (store) => {
     for (const bomb of store.bombs) {
@@ -1100,9 +1490,11 @@ const Store = {
     monthLabels: [],
     gameInterval: 0,
     nextBombId: 0,
+    nextItemId: 0,
     players: [],
     bombs: [],
     activeExplosions: [],
+    items: [],
     gameHistory: [],
     initialColors: [],
     cellEvents: [],
@@ -1267,104 +1659,117 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   Renderer: () => (/* binding */ Renderer)
 /* harmony export */ });
 /* harmony import */ var _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../shared/utils/utils */ "./src/shared/utils/utils.ts");
-/* harmony import */ var _core_constants__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../core/constants */ "./src/bomberman/core/constants.ts");
-/* harmony import */ var _animation__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./animation */ "./src/bomberman/renderers/animation.ts");
+/* harmony import */ var _core_items__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../core/items */ "./src/bomberman/core/items.ts");
+/* harmony import */ var _core_constants__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../core/constants */ "./src/bomberman/core/constants.ts");
+/* harmony import */ var _animation__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./animation */ "./src/bomberman/renderers/animation.ts");
 
 
 
-const EXPLOSION_SPRITE_SIZE = _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.EXPLOSION_SPRITE_CELL_SPAN + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE * _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.EXPLOSION_SPRITE_GAP_SPAN;
+
 const PLAYER_SPRITE_CHAINS = {
     1: {
         down: [
-            { id: 'bm-player-1-down-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkDown0 },
-            { id: 'bm-player-1-down-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkDown1 },
-            { id: 'bm-player-1-down-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkDown2 },
-            { id: 'bm-player-1-down-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkDown3 }
+            { id: 'bm-player-1-down-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkDown0 },
+            { id: 'bm-player-1-down-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkDown1 },
+            { id: 'bm-player-1-down-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkDown2 },
+            { id: 'bm-player-1-down-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkDown3 }
         ],
         up: [
-            { id: 'bm-player-1-up-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkUp0 },
-            { id: 'bm-player-1-up-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkUp1 },
-            { id: 'bm-player-1-up-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkUp2 },
-            { id: 'bm-player-1-up-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkUp3 }
+            { id: 'bm-player-1-up-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkUp0 },
+            { id: 'bm-player-1-up-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkUp1 },
+            { id: 'bm-player-1-up-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkUp2 },
+            { id: 'bm-player-1-up-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkUp3 }
         ],
         left: [
-            { id: 'bm-player-1-left-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight0, flipX: true },
-            { id: 'bm-player-1-left-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight1, flipX: true },
-            { id: 'bm-player-1-left-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight2, flipX: true },
-            { id: 'bm-player-1-left-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight3, flipX: true },
-            { id: 'bm-player-1-left-4', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight4, flipX: true },
-            { id: 'bm-player-1-left-5', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight5, flipX: true }
+            { id: 'bm-player-1-left-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkRight0, flipX: true },
+            { id: 'bm-player-1-left-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkRight1, flipX: true },
+            { id: 'bm-player-1-left-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkRight2, flipX: true },
+            { id: 'bm-player-1-left-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkRight3, flipX: true },
+            { id: 'bm-player-1-left-4', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkRight4, flipX: true },
+            { id: 'bm-player-1-left-5', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkRight5, flipX: true }
         ],
         right: [
-            { id: 'bm-player-1-right-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight0 },
-            { id: 'bm-player-1-right-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight1 },
-            { id: 'bm-player-1-right-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight2 },
-            { id: 'bm-player-1-right-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight3 },
-            { id: 'bm-player-1-right-4', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight4 },
-            { id: 'bm-player-1-right-5', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight5 }
+            { id: 'bm-player-1-right-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkRight0 },
+            { id: 'bm-player-1-right-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkRight1 },
+            { id: 'bm-player-1-right-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkRight2 },
+            { id: 'bm-player-1-right-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkRight3 },
+            { id: 'bm-player-1-right-4', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkRight4 },
+            { id: 'bm-player-1-right-5', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.walkRight5 }
         ]
     },
     2: {
         down: [
-            { id: 'bm-player-2-down-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkDown0 },
-            { id: 'bm-player-2-down-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkDown1 },
-            { id: 'bm-player-2-down-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkDown2 },
-            { id: 'bm-player-2-down-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkDown3 }
+            { id: 'bm-player-2-down-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkDown0 },
+            { id: 'bm-player-2-down-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkDown1 },
+            { id: 'bm-player-2-down-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkDown2 },
+            { id: 'bm-player-2-down-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkDown3 }
         ],
         up: [
-            { id: 'bm-player-2-up-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkUp0 },
-            { id: 'bm-player-2-up-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkUp1 },
-            { id: 'bm-player-2-up-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkUp2 },
-            { id: 'bm-player-2-up-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkUp3 }
+            { id: 'bm-player-2-up-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkUp0 },
+            { id: 'bm-player-2-up-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkUp1 },
+            { id: 'bm-player-2-up-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkUp2 },
+            { id: 'bm-player-2-up-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkUp3 }
         ],
         left: [
-            { id: 'bm-player-2-left-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight0, flipX: true },
-            { id: 'bm-player-2-left-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight1, flipX: true },
-            { id: 'bm-player-2-left-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight2, flipX: true },
-            { id: 'bm-player-2-left-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight3, flipX: true },
-            { id: 'bm-player-2-left-4', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight4, flipX: true },
-            { id: 'bm-player-2-left-5', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight5, flipX: true }
+            { id: 'bm-player-2-left-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight0, flipX: true },
+            { id: 'bm-player-2-left-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight1, flipX: true },
+            { id: 'bm-player-2-left-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight2, flipX: true },
+            { id: 'bm-player-2-left-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight3, flipX: true },
+            { id: 'bm-player-2-left-4', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight4, flipX: true },
+            { id: 'bm-player-2-left-5', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight5, flipX: true }
         ],
         right: [
-            { id: 'bm-player-2-right-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight0 },
-            { id: 'bm-player-2-right-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight1 },
-            { id: 'bm-player-2-right-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight2 },
-            { id: 'bm-player-2-right-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight3 },
-            { id: 'bm-player-2-right-4', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight4 },
-            { id: 'bm-player-2-right-5', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight5 }
+            { id: 'bm-player-2-right-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight0 },
+            { id: 'bm-player-2-right-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight1 },
+            { id: 'bm-player-2-right-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight2 },
+            { id: 'bm-player-2-right-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight3 },
+            { id: 'bm-player-2-right-4', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight4 },
+            { id: 'bm-player-2-right-5', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight5 }
         ]
     }
 };
 const PLAYER_DEATH_SPRITE_CHAINS = {
     1: [
-        { id: 'bm-player-1-death-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.death0 },
-        { id: 'bm-player-1-death-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.death1 },
-        { id: 'bm-player-1-death-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.death2 },
-        { id: 'bm-player-1-death-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.death3 },
-        { id: 'bm-player-1-death-4', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.death4 }
+        { id: 'bm-player-1-death-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.death0 },
+        { id: 'bm-player-1-death-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.death1 },
+        { id: 'bm-player-1-death-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.death2 },
+        { id: 'bm-player-1-death-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.death3 },
+        { id: 'bm-player-1-death-4', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.death4 }
     ],
     2: [
-        { id: 'bm-player-2-death-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.death0 },
-        { id: 'bm-player-2-death-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.death1 },
-        { id: 'bm-player-2-death-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.death2 },
-        { id: 'bm-player-2-death-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.death3 }
+        { id: 'bm-player-2-death-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.death0 },
+        { id: 'bm-player-2-death-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.death1 },
+        { id: 'bm-player-2-death-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.death2 },
+        { id: 'bm-player-2-death-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.death3 }
     ]
 };
-const BOMB_SPRITE = { id: 'bm-bomb', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.explosions.bombs.fuse0 };
-const EXPLOSION_SPRITE_CHAIN = [
-    { id: 'bm-explosion-thin-left', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.explosions.crosses.thinLeft },
-    { id: 'bm-explosion-full-left', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.explosions.crosses.fullLeft },
-    { id: 'bm-explosion-full-right', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.explosions.crosses.fullRight },
-    { id: 'bm-explosion-thin-right', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.explosions.crosses.thinRight }
-];
-const toSvgX = (gx) => gx * (_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE);
-const toSvgY = (gy) => gy * (_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.HEADER_HEIGHT;
+const BOMB_SPRITE = { id: 'bm-bomb', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.explosions.bombs.fuse0 };
+const BLAST_SPRITES = {
+    center: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.explosions.blast.center.map((frame, index) => ({
+        id: `bm-blast-center-${index}`,
+        frame,
+        preserveAspectRatio: 'none'
+    })),
+    segment: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.explosions.blast.segment.map((frame, index) => ({
+        id: `bm-blast-segment-${index}`,
+        frame,
+        preserveAspectRatio: 'none'
+    })),
+    end: _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.explosions.blast.end.map((frame, index) => ({
+        id: `bm-blast-end-${index}`,
+        frame,
+        preserveAspectRatio: 'none'
+    }))
+};
+const ITEM_SPRITES = Object.fromEntries(Object.entries(_core_items__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_ITEM_DEFINITIONS).map(([type, definition]) => [type, { id: `bm-item-${type}`, frame: definition.sprite }]));
+const toSvgX = (gx) => gx * (_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_2__.GAP_SIZE);
+const toSvgY = (gy) => gy * (_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_2__.GAP_SIZE) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.HEADER_HEIGHT;
 const generateAnimatedSVG = (store) => {
     var _a, _b, _c, _d, _e;
-    const svgWidth = _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH * (_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE);
-    const svgHeight = _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_HEIGHT * (_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.HEADER_HEIGHT;
+    const svgWidth = _core_constants__WEBPACK_IMPORTED_MODULE_2__.GRID_WIDTH * (_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_2__.GAP_SIZE);
+    const svgHeight = _core_constants__WEBPACK_IMPORTED_MODULE_2__.GRID_HEIGHT * (_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_2__.GAP_SIZE) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.HEADER_HEIGHT;
     const totalFrames = store.gameHistory.length;
-    const totalDurationMs = Math.max((totalFrames * _core_constants__WEBPACK_IMPORTED_MODULE_1__.DELTA_TIME) / _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.DURATION_SPEED_DIVISOR, _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.MIN_DURATION_MS);
+    const totalDurationMs = Math.max((totalFrames * _core_constants__WEBPACK_IMPORTED_MODULE_2__.DELTA_TIME) / _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.DURATION_SPEED_DIVISOR, _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.MIN_DURATION_MS);
     const theme = _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__.Utils.getCurrentTheme(store);
     const cellEventsByPosition = indexCellEvents(store.cellEvents);
     let svg = `<svg width="${svgWidth}" height="${svgHeight}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" color-interpolation="sRGB">`;
@@ -1372,17 +1777,17 @@ const generateAnimatedSVG = (store) => {
     svg += buildSpriteDefs();
     svg += `<rect width="100%" height="100%" fill="${theme.gridBackground}"/>`;
     let lastMonth = '';
-    for (let x = 0; x < _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH; x++) {
+    for (let x = 0; x < _core_constants__WEBPACK_IMPORTED_MODULE_2__.GRID_WIDTH; x++) {
         if (store.monthLabels[x] !== lastMonth) {
-            const xPos = x * (_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE / 2;
-            svg += `<text x="${xPos}" y="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.MONTH_LABEL_Y}" text-anchor="middle" font-size="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.MONTH_LABEL_FONT_SIZE}" fill="${theme.textColor}">${store.monthLabels[x]}</text>`;
+            const xPos = x * (_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_2__.GAP_SIZE) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2;
+            svg += `<text x="${xPos}" y="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.MONTH_LABEL_Y}" text-anchor="middle" font-size="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.MONTH_LABEL_FONT_SIZE}" fill="${theme.textColor}">${store.monthLabels[x]}</text>`;
             lastMonth = store.monthLabels[x];
         }
     }
-    for (let x = 0; x < _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH; x++) {
-        for (let y = 0; y < _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_HEIGHT; y++) {
+    for (let x = 0; x < _core_constants__WEBPACK_IMPORTED_MODULE_2__.GRID_WIDTH; x++) {
+        for (let y = 0; y < _core_constants__WEBPACK_IMPORTED_MODULE_2__.GRID_HEIGHT; y++) {
             const colorAnim = getCellAnimationData(store, x, y, cellEventsByPosition);
-            svg += `<rect id="c-${x}-${y}" x="${toSvgX(x)}" y="${toSvgY(y)}" width="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE}" height="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE}" rx="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.CELL_RADIUS}" fill="${(_b = (_a = store.initialColors[x]) === null || _a === void 0 ? void 0 : _a[y]) !== null && _b !== void 0 ? _b : theme.intensityColors[0]}">`;
+            svg += `<rect id="c-${x}-${y}" x="${toSvgX(x)}" y="${toSvgY(y)}" width="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE}" height="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE}" rx="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.CELL_RADIUS}" fill="${(_b = (_a = store.initialColors[x]) === null || _a === void 0 ? void 0 : _a[y]) !== null && _b !== void 0 ? _b : theme.intensityColors[0]}">`;
             if (colorAnim) {
                 svg += `<animate attributeName="fill" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
 					values="${colorAnim.values}" keyTimes="${colorAnim.keyTimes}"/>`;
@@ -1393,42 +1798,46 @@ const generateAnimatedSVG = (store) => {
     for (const bombEvent of collectBombs(store)) {
         const opacityAnim = buildVisibilityAnimation(totalFrames, bombEvent.startFrame, bombEvent.endFrameExclusive);
         const initialOpacity = bombEvent.startFrame === 0 ? '1' : '0';
-        svg += `<g id="bomb-${bombEvent.bomb.id}" opacity="${initialOpacity}" transform="translate(${centerPosition(bombEvent.bomb.x, bombEvent.bomb.y)})" style="will-change: opacity;">`;
+        svg += `<g id="bomb-${bombEvent.bomb.id}" opacity="${initialOpacity}" transform="translate(${centerPosition(bombEvent.bomb.x, bombEvent.bomb.y)})">`;
         if (opacityAnim) {
             svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
 				keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
         }
-        svg += `<use x="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.BOMB_X}" y="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.BOMB_Y}" width="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.BOMB_WIDTH}" height="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.BOMB_HEIGHT}" href="${getDefaultBombRef()}" style="will-change: transform;">
-			<animateTransform attributeName="transform" type="scale" calcMode="linear" dur="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.BOMB_PULSE_DURATION_MS}ms" repeatCount="indefinite"
-				keyTimes="0;0.5;1" values="1;${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.BOMB_PULSE_SCALE};1"/>
+        svg += `<use x="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.BOMB_X}" y="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.BOMB_Y}" width="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.BOMB_WIDTH}" height="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.BOMB_HEIGHT}" href="${getDefaultBombRef()}">
+			<animateTransform attributeName="transform" type="scale" calcMode="linear" dur="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.BOMB_PULSE_DURATION_MS}ms" repeatCount="indefinite"
+				keyTimes="0;0.5;1" values="1;${_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.BOMB_PULSE_SCALE};1"/>
 		</use></g>`;
     }
-    for (const explosion of store.explosionEvents) {
-        const opacityAnim = getExplosionOpacityAnimation(store, explosion);
-        const spriteAnim = getExplosionSpriteAnimation(store, explosion);
-        const cx = toSvgX(explosion.x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE / 2;
-        const cy = toSvgY(explosion.y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE / 2;
-        const x = cx - EXPLOSION_SPRITE_SIZE / 2;
-        const y = cy - EXPLOSION_SPRITE_SIZE / 2;
-        svg += `<use x="${x}" y="${y}" width="${EXPLOSION_SPRITE_SIZE}" height="${EXPLOSION_SPRITE_SIZE}" href="${getDefaultExplosionRef()}" opacity="0" style="will-change: opacity;">`;
-        if (spriteAnim) {
-            svg += `<animate attributeName="href" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
-				keyTimes="${spriteAnim.keyTimes}" values="${spriteAnim.values}"/>`;
-        }
+    for (const itemEvent of collectItems(store)) {
+        const opacityAnim = buildVisibilityAnimation(totalFrames, itemEvent.startFrame, itemEvent.endFrameExclusive);
+        const initialOpacity = itemEvent.startFrame === 0 ? '1' : '0';
+        const x = toSvgX(itemEvent.item.x) + (_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE - _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.ITEM_WIDTH) / 2;
+        const y = toSvgY(itemEvent.item.y) + (_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE - _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.ITEM_HEIGHT) / 2;
+        svg += `<use id="item-${itemEvent.item.id}" x="${x}" y="${y}" width="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.ITEM_WIDTH}" height="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.ITEM_HEIGHT}" href="${getItemRef(itemEvent.item.type)}" opacity="${initialOpacity}">`;
         if (opacityAnim) {
             svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
 				keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
         }
         svg += `</use>`;
     }
+    for (const explosion of store.explosionEvents) {
+        const opacityAnim = getExplosionOpacityAnimation(store, explosion);
+        svg += `<g opacity="0">`;
+        svg += renderExplosionShape({ explosion });
+        if (opacityAnim) {
+            svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
+				keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
+        }
+        svg += `</g>`;
+    }
     for (const player of store.players) {
         const positions = getPlayerPositions(store, player.id);
         const opacities = getPlayerOpacities(store, player.id);
         const spriteRefs = getPlayerSpriteRefs(store, player.id);
-        const positionAnim = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.buildStepwiseLinearAnimation)(positions);
-        const opacityAnim = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.buildChangingValuesAnimation)(opacities);
-        const spriteAnim = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.buildChangingValuesAnimation)(spriteRefs);
-        svg += `<use id="player-${player.id}" x="${-_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.PLAYER_SPRITE_WIDTH / 2}" y="${-_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.PLAYER_SPRITE_HEIGHT + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE / 2}" width="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.PLAYER_SPRITE_WIDTH}" height="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.PLAYER_SPRITE_HEIGHT}" href="${(_c = spriteRefs[0]) !== null && _c !== void 0 ? _c : getDefaultPlayerRef(player.id)}" opacity="${(_d = opacities[0]) !== null && _d !== void 0 ? _d : '0'}" transform="translate(${(_e = positions[0]) !== null && _e !== void 0 ? _e : '0 0'})" style="will-change: transform, opacity;">`;
+        const positionAnim = (0,_animation__WEBPACK_IMPORTED_MODULE_3__.buildStepwiseLinearAnimation)(positions);
+        const opacityAnim = (0,_animation__WEBPACK_IMPORTED_MODULE_3__.buildChangingValuesAnimation)(opacities);
+        const spriteAnim = (0,_animation__WEBPACK_IMPORTED_MODULE_3__.buildChangingValuesAnimation)(spriteRefs);
+        svg += `<use id="player-${player.id}" x="${-_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.PLAYER_SPRITE_WIDTH / 2}" y="${-_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.PLAYER_SPRITE_HEIGHT + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2}" width="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.PLAYER_SPRITE_WIDTH}" height="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.PLAYER_SPRITE_HEIGHT}" href="${(_c = spriteRefs[0]) !== null && _c !== void 0 ? _c : getDefaultPlayerRef(player.id)}" opacity="${(_d = opacities[0]) !== null && _d !== void 0 ? _d : '0'}" transform="translate(${(_e = positions[0]) !== null && _e !== void 0 ? _e : '0 0'})">`;
         if (spriteAnim) {
             svg += `<animate attributeName="href" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
 				keyTimes="${spriteAnim.keyTimes}" values="${spriteAnim.values}"/>`;
@@ -1444,8 +1853,13 @@ const generateAnimatedSVG = (store) => {
         svg += `</use>`;
     }
     svg += '</svg>';
-    return svg;
+    return minifySvg(svg);
 };
+const minifySvg = (svg) => svg
+    .replace(/>\s+</g, '><')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s\/>/g, '/>')
+    .trim();
 const getCellAnimationData = (store, x, y, eventsByPosition) => {
     var _a, _b;
     const totalFrames = store.gameHistory.length;
@@ -1456,7 +1870,7 @@ const getCellAnimationData = (store, x, y, eventsByPosition) => {
     const keyTimes = [0];
     const values = [initialColor];
     for (const event of events) {
-        const time = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.frameToKeyTime)(event.frameIndex, totalFrames);
+        const time = (0,_animation__WEBPACK_IMPORTED_MODULE_3__.frameToKeyTime)(event.frameIndex, totalFrames);
         if (time !== keyTimes[keyTimes.length - 1]) {
             keyTimes.push(time);
             values.push(event.color);
@@ -1493,6 +1907,28 @@ const collectBombs = (store) => {
     }
     return Array.from(bombs.values());
 };
+const collectItems = (store) => {
+    const items = new Map();
+    for (let frameIndex = 0; frameIndex < store.gameHistory.length; frameIndex++) {
+        const frame = store.gameHistory[frameIndex];
+        for (const item of frame.items) {
+            if (item.hidden || item.collected || item.destroyed)
+                continue;
+            const existing = items.get(item.id);
+            if (existing) {
+                existing.endFrameExclusive = frameIndex + 1;
+            }
+            else {
+                items.set(item.id, {
+                    item,
+                    startFrame: frameIndex,
+                    endFrameExclusive: frameIndex + 1
+                });
+            }
+        }
+    }
+    return Array.from(items.values());
+};
 const getPlayerPositions = (store, playerId) => store.gameHistory.map((frame) => {
     const player = frame.players.find((candidate) => candidate.id === playerId);
     return player ? centerPosition(player.x, player.y) : '0 0';
@@ -1512,7 +1948,7 @@ const getPlayerSpriteRefs = (store, playerId) => store.gameHistory.map((frame, f
     const previousPlayer = frameIndex > 0 ? store.gameHistory[frameIndex - 1].players.find((candidate) => candidate.id === playerId) : undefined;
     const moving = Boolean(previousPlayer && (previousPlayer.x !== player.x || previousPlayer.y !== player.y));
     const cycle = PLAYER_SPRITE_CHAINS[playerId][player.direction];
-    const spriteIndex = moving ? Math.floor(frameIndex / _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.PLAYER_SPRITE_FRAME_INTERVAL) % cycle.length : 0;
+    const spriteIndex = moving ? Math.floor(frameIndex / _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.PLAYER_SPRITE_FRAME_INTERVAL) % cycle.length : 0;
     return toSpriteRef(cycle[spriteIndex]);
 });
 const getPlayerOpacities = (store, playerId) => store.gameHistory.map((frame, frameIndex) => {
@@ -1536,37 +1972,176 @@ const getPlayerDeathFrameIndex = (store, playerId) => {
     }
     return null;
 };
-const centerPosition = (x, y) => `${toSvgX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE / 2} ${toSvgY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE / 2}`;
-const getExplosionSpriteAnimation = (store, explosion) => {
-    const totalFrames = store.gameHistory.length;
-    const keyTimes = [0];
-    const values = [getDefaultExplosionRef()];
-    const visibleFrames = Math.max(explosion.remainingFrames, 1);
-    for (let localFrame = 0; localFrame < visibleFrames; localFrame++) {
-        const frameIndex = explosion.frameIndex + localFrame;
-        const time = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.frameToKeyTime)(frameIndex, totalFrames);
-        const spriteIndex = Math.min(localFrame, EXPLOSION_SPRITE_CHAIN.length - 1);
-        (0,_animation__WEBPACK_IMPORTED_MODULE_2__.appendKeyframe)(keyTimes, values, time, toSpriteRef(EXPLOSION_SPRITE_CHAIN[spriteIndex]));
+const centerPosition = (x, y) => `${toSvgX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2} ${toSvgY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2}`;
+const renderExplosionShape = (animation) => {
+    const { explosion } = animation;
+    const arms = getExplosionArmLengths(explosion);
+    return [
+        ...renderExplosionArm(animation, 'left', arms.left),
+        ...renderExplosionArm(animation, 'right', arms.right),
+        ...renderExplosionArm(animation, 'up', arms.up),
+        ...renderExplosionArm(animation, 'down', arms.down),
+        renderBlastSprite('center', explosion.x, explosion.y, 'right', animation)
+    ].join('');
+};
+const renderExplosionArm = (animation, direction, length) => {
+    if (length <= 0)
+        return [];
+    const endPosition = getExplosionArmPosition(animation.explosion, direction, length);
+    return [renderBlastArmBody(animation, direction, length), renderBlastSprite('end', endPosition.x, endPosition.y, direction, animation)];
+};
+const getExplosionArmPosition = (explosion, direction, distance) => {
+    switch (direction) {
+        case 'left':
+            return { x: explosion.x - distance, y: explosion.y };
+        case 'right':
+            return { x: explosion.x + distance, y: explosion.y };
+        case 'up':
+            return { x: explosion.x, y: explosion.y - distance };
+        case 'down':
+            return { x: explosion.x, y: explosion.y + distance };
     }
-    (0,_animation__WEBPACK_IMPORTED_MODULE_2__.appendFinalKeyframe)(keyTimes, values);
-    if (values.length <= 1 || values.every((v) => v === values[0]))
-        return null;
-    return { keyTimes: keyTimes.join(';'), values: values.join(';') };
+};
+const renderBlastSprite = (kind, x, y, direction, animation) => {
+    const placement = getBlastPlacement(kind, x, y, direction);
+    const rotation = placement.degrees === 0 ? '' : ` transform="rotate(${placement.degrees} ${placement.centerX} ${placement.centerY})"`;
+    return `<use x="${placement.x}" y="${placement.y}" width="${placement.width}" height="${placement.height}" href="${getAnimatedBlastRef(kind, animation.explosion)}"${rotation}/>`;
+};
+const renderBlastArmBody = (animation, direction, length) => {
+    const placement = getBlastArmBodyPlacement(animation.explosion, direction, length);
+    const rotation = placement.degrees === 0 ? '' : ` transform="rotate(${placement.degrees} ${placement.centerX} ${placement.centerY})"`;
+    return `<use x="${placement.x}" y="${placement.y}" width="${placement.width}" height="${placement.height}" href="${getAnimatedBlastRef('segment', animation.explosion)}"${rotation}/>`;
+};
+const getBlastPlacement = (kind, x, y, direction) => {
+    if (kind === 'center') {
+        return {
+            x: toSvgX(x),
+            y: toSvgY(y),
+            width: _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE,
+            height: _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE,
+            centerX: toSvgX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2,
+            centerY: toSvgY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2,
+            degrees: 0
+        };
+    }
+    const axisLength = _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE;
+    const thickness = _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.BLAST_THICKNESS;
+    const cellX = toSvgX(x);
+    const cellY = toSvgY(y);
+    const cellCenterX = cellX + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2;
+    const cellCenterY = cellY + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2;
+    switch (direction) {
+        case 'left':
+            return {
+                x: cellX,
+                y: cellCenterY - thickness / 2,
+                width: axisLength,
+                height: thickness,
+                centerX: cellX + axisLength / 2,
+                centerY: cellCenterY,
+                degrees: 180
+            };
+        case 'right':
+            return {
+                x: cellX,
+                y: cellCenterY - thickness / 2,
+                width: axisLength,
+                height: thickness,
+                centerX: cellX + axisLength / 2,
+                centerY: cellCenterY,
+                degrees: 0
+            };
+        case 'up': {
+            return {
+                x: cellCenterX - axisLength / 2,
+                y: cellCenterY - thickness / 2,
+                width: axisLength,
+                height: thickness,
+                centerX: cellCenterX,
+                centerY: cellCenterY,
+                degrees: -90
+            };
+        }
+        case 'down': {
+            return {
+                x: cellCenterX - axisLength / 2,
+                y: cellCenterY - thickness / 2,
+                width: axisLength,
+                height: thickness,
+                centerX: cellCenterX,
+                centerY: cellCenterY,
+                degrees: 90
+            };
+        }
+    }
+};
+const getBlastArmBodyPlacement = (explosion, direction, length) => {
+    const originCenterX = toSvgX(explosion.x) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2;
+    const originCenterY = toSvgY(explosion.y) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2;
+    const end = getExplosionArmPosition(explosion, direction, length);
+    const endCenterX = toSvgX(end.x) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2;
+    const endCenterY = toSvgY(end.y) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2;
+    const thickness = _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.BLAST_THICKNESS;
+    if (direction === 'left' || direction === 'right') {
+        const left = Math.min(originCenterX, endCenterX);
+        const right = Math.max(originCenterX, endCenterX);
+        return {
+            x: left,
+            y: originCenterY - thickness / 2,
+            width: right - left,
+            height: thickness,
+            centerX: (left + right) / 2,
+            centerY: originCenterY,
+            degrees: direction === 'left' ? 180 : 0
+        };
+    }
+    const top = Math.min(originCenterY, endCenterY);
+    const bottom = Math.max(originCenterY, endCenterY);
+    return {
+        x: originCenterX - (bottom - top) / 2,
+        y: (top + bottom) / 2 - thickness / 2,
+        width: bottom - top,
+        height: thickness,
+        centerX: originCenterX,
+        centerY: (top + bottom) / 2,
+        degrees: direction === 'up' ? -90 : 90
+    };
+};
+const getExplosionArmLengths = (explosion) => {
+    let left = 0;
+    let right = 0;
+    let up = 0;
+    let down = 0;
+    for (const cell of explosion.affectedCells) {
+        if (cell.y === explosion.y) {
+            if (cell.x < explosion.x)
+                left = Math.max(left, explosion.x - cell.x);
+            if (cell.x > explosion.x)
+                right = Math.max(right, cell.x - explosion.x);
+        }
+        if (cell.x === explosion.x) {
+            if (cell.y < explosion.y)
+                up = Math.max(up, explosion.y - cell.y);
+            if (cell.y > explosion.y)
+                down = Math.max(down, cell.y - explosion.y);
+        }
+    }
+    return { left, right, up, down };
 };
 const getExplosionOpacityAnimation = (store, explosion) => {
     const totalFrames = store.gameHistory.length;
-    const start = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.frameToKeyTime)(explosion.frameIndex, totalFrames);
-    const end = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.frameToKeyTime)(explosion.frameIndex + explosion.remainingFrames, totalFrames);
+    const start = (0,_animation__WEBPACK_IMPORTED_MODULE_3__.frameToKeyTime)(explosion.frameIndex, totalFrames);
+    const end = (0,_animation__WEBPACK_IMPORTED_MODULE_3__.frameToKeyTime)(explosion.frameIndex + explosion.remainingFrames, totalFrames);
     return {
         keyTimes: `0;${start};${start};${end};${end};1`,
-        values: `0;0;${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.EXPLOSION_OPACITY};${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.EXPLOSION_OPACITY};0;0`
+        values: `0;0;${_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.EXPLOSION_OPACITY};${_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.EXPLOSION_OPACITY};0;0`
     };
 };
 const buildVisibilityAnimation = (totalFrames, startFrame, endFrameExclusive) => {
     if (totalFrames <= 1 || (startFrame === 0 && endFrameExclusive >= totalFrames))
         return null;
-    const start = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.frameToKeyTime)(startFrame, totalFrames);
-    const end = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.frameToKeyTime)(endFrameExclusive, totalFrames);
+    const start = (0,_animation__WEBPACK_IMPORTED_MODULE_3__.frameToKeyTime)(startFrame, totalFrames);
+    const end = (0,_animation__WEBPACK_IMPORTED_MODULE_3__.frameToKeyTime)(endFrameExclusive, totalFrames);
     return {
         keyTimes: `0;${start};${start};${end};${end};1`,
         values: '0;0;1;1;0;0'
@@ -1587,6 +2162,11 @@ const indexCellEvents = (events) => {
     return eventsByPosition;
 };
 const cellEventKey = (x, y) => `${x}:${y}`;
+const getAnimatedBlastRef = (kind, explosion) => {
+    const frameCount = BLAST_SPRITES[kind].length;
+    const phase = (frameCount - (explosion.frameIndex % frameCount)) % frameCount;
+    return `#bm-blast-${kind}-cycle-${phase}`;
+};
 const buildSpriteDefs = () => {
     const symbols = new Map();
     for (const playerChains of Object.values(PLAYER_SPRITE_CHAINS)) {
@@ -1600,19 +2180,35 @@ const buildSpriteDefs = () => {
             symbols.set(sprite.id, sprite);
     }
     symbols.set(BOMB_SPRITE.id, BOMB_SPRITE);
-    for (const sprite of EXPLOSION_SPRITE_CHAIN)
+    for (const cycle of Object.values(BLAST_SPRITES)) {
+        for (const sprite of cycle)
+            symbols.set(sprite.id, sprite);
+    }
+    for (const sprite of Object.values(ITEM_SPRITES))
         symbols.set(sprite.id, sprite);
-    const defs = Array.from(symbols.entries())
-        .map(([id, sprite]) => `<symbol id="${id}" viewBox="0 0 ${sprite.frame.width} ${sprite.frame.height}" overflow="visible">
+    const spriteDefs = Array.from(symbols.entries())
+        .map(([id, sprite]) => `<symbol id="${id}" viewBox="0 0 ${sprite.frame.width} ${sprite.frame.height}" overflow="visible"${sprite.preserveAspectRatio ? ` preserveAspectRatio="${sprite.preserveAspectRatio}"` : ''}>
 				<image width="${sprite.frame.width}" height="${sprite.frame.height}" href="${sprite.frame.data}" preserveAspectRatio="xMidYMid meet" style="image-rendering: pixelated;"${sprite.flipX ? ` transform="translate(${sprite.frame.width} 0) scale(-1 1)"` : ''}/>
 			</symbol>`)
         .join('');
-    return `<defs>${defs}</defs>`;
+    return `<defs>${spriteDefs}${buildAnimatedBlastDefs()}</defs>`;
 };
+const buildAnimatedBlastDefs = () => Object.entries(BLAST_SPRITES)
+    .flatMap(([kind, cycle]) => cycle.map((_, phase) => buildAnimatedBlastDef(kind, cycle, phase)))
+    .join('');
+const buildAnimatedBlastDef = (kind, cycle, phase) => {
+    const firstFrame = cycle[0].frame;
+    const keyTimes = cycle.map((_, index) => Number((index / cycle.length).toFixed(_core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.PRECISION)));
+    const frameRefs = rotateValues(cycle.map(toSpriteRef), phase);
+    const values = [...frameRefs, frameRefs[0]];
+    return `<symbol id="bm-blast-${kind}-cycle-${phase}" viewBox="0 0 ${firstFrame.width} ${firstFrame.height}" overflow="visible" preserveAspectRatio="none"><use width="${firstFrame.width}" height="${firstFrame.height}" href="${frameRefs[0]}"><animate attributeName="href" calcMode="discrete" dur="${getBlastCycleDurationMs(cycle)}ms" repeatCount="indefinite" keyTimes="${[...keyTimes, 1].join(';')}" values="${values.join(';')}"/></use></symbol>`;
+};
+const rotateValues = (values, offset) => [...values.slice(offset), ...values.slice(0, offset)];
+const getBlastCycleDurationMs = (cycle) => (cycle.length * _core_constants__WEBPACK_IMPORTED_MODULE_2__.DELTA_TIME) / _core_constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SVG.DURATION_SPEED_DIVISOR;
 const toSpriteRef = (sprite) => `#${sprite.id}`;
 const getDefaultPlayerRef = (playerId) => toSpriteRef(PLAYER_SPRITE_CHAINS[playerId].down[0]);
 const getDefaultBombRef = () => toSpriteRef(BOMB_SPRITE);
-const getDefaultExplosionRef = () => toSpriteRef(EXPLOSION_SPRITE_CHAIN[0]);
+const getItemRef = (type) => toSpriteRef(ITEM_SPRITES[type]);
 const Renderer = {
     generateAnimatedSVG
 };
@@ -6171,6 +6767,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var _github_contributions__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./github-contributions */ "./src/shared/providers/github-contributions.ts");
 /* harmony import */ var _gitlab_contributions__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./gitlab-contributions */ "./src/shared/providers/gitlab-contributions.ts");
+/* harmony import */ var _scenarios__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./scenarios */ "./src/shared/providers/scenarios.ts");
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -6182,9 +6779,13 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 };
 
 
+
 const fetchContributions = (store) => __awaiter(void 0, void 0, void 0, function* () {
     if (store.config.contributions) {
         return store.config.contributions;
+    }
+    if (store.config.scenario !== undefined) {
+        return (0,_scenarios__WEBPACK_IMPORTED_MODULE_2__.generateScenarioContributions)(store.config.scenario).contributions;
     }
     switch (store.config.platform) {
         case 'gitlab':
@@ -6198,16 +6799,17 @@ const fetchContributions = (store) => __awaiter(void 0, void 0, void 0, function
 const Providers = {
     fetchContributions,
     fetchGithubContributions: _github_contributions__WEBPACK_IMPORTED_MODULE_0__.fetchGithubContributions,
-    fetchGitlabContributions: _gitlab_contributions__WEBPACK_IMPORTED_MODULE_1__.fetchGitlabContributions
+    fetchGitlabContributions: _gitlab_contributions__WEBPACK_IMPORTED_MODULE_1__.fetchGitlabContributions,
+    generateScenarioContributions: _scenarios__WEBPACK_IMPORTED_MODULE_2__.generateScenarioContributions
 };
 
 
 /***/ },
 
-/***/ "./src/shared/scenarios.ts"
-/*!*********************************!*\
-  !*** ./src/shared/scenarios.ts ***!
-  \*********************************/
+/***/ "./src/shared/providers/scenarios.ts"
+/*!*******************************************!*\
+  !*** ./src/shared/providers/scenarios.ts ***!
+  \*******************************************/
 (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
@@ -6576,10 +7178,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   PacmanRenderer: () => (/* reexport safe */ _pacman_index__WEBPACK_IMPORTED_MODULE_3__.PacmanRenderer),
 /* harmony export */   PlayerStyle: () => (/* reexport safe */ _pacman_index__WEBPACK_IMPORTED_MODULE_3__.PlayerStyle),
 /* harmony export */   PuzzleBobbleRenderer: () => (/* reexport safe */ _puzzle_bobble_index__WEBPACK_IMPORTED_MODULE_4__.PuzzleBobbleRenderer),
-/* harmony export */   SCENARIOS: () => (/* reexport safe */ _shared_scenarios__WEBPACK_IMPORTED_MODULE_6__.SCENARIOS),
-/* harmony export */   generateScenarioContributions: () => (/* reexport safe */ _shared_scenarios__WEBPACK_IMPORTED_MODULE_6__.generateScenarioContributions),
-/* harmony export */   isScenarioName: () => (/* reexport safe */ _shared_scenarios__WEBPACK_IMPORTED_MODULE_6__.isScenarioName),
-/* harmony export */   resolveScenarioName: () => (/* reexport safe */ _shared_scenarios__WEBPACK_IMPORTED_MODULE_6__.resolveScenarioName)
+/* harmony export */   SCENARIOS: () => (/* reexport safe */ _shared_providers_scenarios__WEBPACK_IMPORTED_MODULE_6__.SCENARIOS),
+/* harmony export */   generateScenarioContributions: () => (/* reexport safe */ _shared_providers_scenarios__WEBPACK_IMPORTED_MODULE_6__.generateScenarioContributions),
+/* harmony export */   isScenarioName: () => (/* reexport safe */ _shared_providers_scenarios__WEBPACK_IMPORTED_MODULE_6__.isScenarioName),
+/* harmony export */   resolveScenarioName: () => (/* reexport safe */ _shared_providers_scenarios__WEBPACK_IMPORTED_MODULE_6__.resolveScenarioName)
 /* harmony export */ });
 /* harmony import */ var _bomberman_index__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./bomberman/index */ "./src/bomberman/index.ts");
 /* harmony import */ var _breakout_index__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./breakout/index */ "./src/breakout/index.ts");
@@ -6587,7 +7189,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _pacman_index__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./pacman/index */ "./src/pacman/index.ts");
 /* harmony import */ var _puzzle_bobble_index__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./puzzle-bobble/index */ "./src/puzzle-bobble/index.ts");
 /* harmony import */ var _shared_arcade_renderer__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./shared/arcade-renderer */ "./src/shared/arcade-renderer.ts");
-/* harmony import */ var _shared_scenarios__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./shared/scenarios */ "./src/shared/scenarios.ts");
+/* harmony import */ var _shared_providers_scenarios__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./shared/providers/scenarios */ "./src/shared/providers/scenarios.ts");
 
 
 
