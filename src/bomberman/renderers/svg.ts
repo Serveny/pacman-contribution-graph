@@ -15,9 +15,17 @@ type SpriteSymbol = {
 	id: string;
 	frame: SpriteFrame;
 	flipX?: boolean;
+	preserveAspectRatio?: 'none';
 };
 
 type SpriteCycle = readonly SpriteSymbol[];
+type BlastSpriteKind = 'center' | 'segment' | 'end';
+type BlastDirection = BombermanPlayer['direction'];
+type BlastAnimationContext = {
+	explosion: BombermanExplosionEvent;
+	totalFrames: number;
+	totalDurationMs: number;
+};
 
 const PLAYER_SPRITE_CHAINS: Record<BombermanPlayer['id'], Record<BombermanPlayer['direction'], SpriteCycle>> = {
 	1: {
@@ -100,11 +108,26 @@ const PLAYER_DEATH_SPRITE_CHAINS: Record<BombermanPlayer['id'], SpriteCycle> = {
 
 const BOMB_SPRITE: SpriteSymbol = { id: 'bm-bomb', frame: BOMBERMAN_SPRITE_SETS.explosions.bombs.fuse0 };
 
+const BLAST_SPRITES: Record<BlastSpriteKind, SpriteCycle> = {
+	center: BOMBERMAN_SPRITE_SETS.explosions.blast.center.map((frame, index) => ({
+		id: `bm-blast-center-${index}`,
+		frame,
+		preserveAspectRatio: 'none'
+	})),
+	segment: BOMBERMAN_SPRITE_SETS.explosions.blast.segment.map((frame, index) => ({
+		id: `bm-blast-segment-${index}`,
+		frame,
+		preserveAspectRatio: 'none'
+	})),
+	end: BOMBERMAN_SPRITE_SETS.explosions.blast.end.map((frame, index) => ({
+		id: `bm-blast-end-${index}`,
+		frame,
+		preserveAspectRatio: 'none'
+	}))
+};
+
 const ITEM_SPRITES = Object.fromEntries(
-	Object.entries(BOMBERMAN_ITEM_DEFINITIONS).map(([type, definition]) => [
-		type,
-		{ id: `bm-item-${type}`, frame: definition.sprite }
-	])
+	Object.entries(BOMBERMAN_ITEM_DEFINITIONS).map(([type, definition]) => [type, { id: `bm-item-${type}`, frame: definition.sprite }])
 ) as Record<BombermanItem['type'], SpriteSymbol>;
 
 const toSvgX = (gx: number) => gx * (CELL_SIZE + GAP_SIZE);
@@ -174,7 +197,7 @@ const generateAnimatedSVG = (store: BombermanStore): string => {
 	for (const explosion of store.explosionEvents) {
 		const opacityAnim = getExplosionOpacityAnimation(store, explosion);
 		svg += `<g opacity="0" style="will-change: opacity;">`;
-		svg += renderExplosionShape(explosion);
+		svg += renderExplosionShape({ explosion, totalFrames, totalDurationMs });
 		if (opacityAnim) {
 			svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
 				keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
@@ -354,41 +377,161 @@ const getPlayerDeathFrameIndex = (store: BombermanStore, playerId: BombermanPlay
 
 const centerPosition = (x: number, y: number) => `${toSvgX(x) + CELL_SIZE / 2} ${toSvgY(y) + CELL_SIZE / 2}`;
 
-const renderExplosionShape = (explosion: BombermanExplosionEvent) => {
-	const outerPath = buildExplosionPath(explosion, 0);
-	const midPath = buildExplosionPath(explosion, 4);
-	const corePath = buildExplosionPath(explosion, 8);
-
-	return `<path d="${outerPath}" fill="#f15a24"/>
-		<path d="${midPath}" fill="#ffc928"/>
-		<path d="${corePath}" fill="#fff3a6"/>`;
+const renderExplosionShape = (animation: BlastAnimationContext) => {
+	const { explosion } = animation;
+	const arms = getExplosionArmLengths(explosion);
+	return [
+		...renderExplosionArm(animation, 'left', arms.left),
+		...renderExplosionArm(animation, 'right', arms.right),
+		...renderExplosionArm(animation, 'up', arms.up),
+		...renderExplosionArm(animation, 'down', arms.down),
+		renderBlastSprite('center', explosion.x, explosion.y, 'right', animation)
+	].join('');
 };
 
-const buildExplosionPath = (explosion: BombermanExplosionEvent, inset: number) => {
-	const arms = getExplosionArmLengths(explosion);
-	const x = toSvgX(explosion.x) + inset;
-	const y = toSvgY(explosion.y) + inset;
-	const size = CELL_SIZE - inset * 2;
-	const left = toSvgX(explosion.x - arms.left) + inset;
-	const right = toSvgX(explosion.x + arms.right) + CELL_SIZE - inset;
-	const top = toSvgY(explosion.y - arms.up) + inset;
-	const bottom = toSvgY(explosion.y + arms.down) + CELL_SIZE - inset;
+const renderExplosionArm = (animation: BlastAnimationContext, direction: BlastDirection, length: number) => {
+	if (length <= 0) return [];
 
-	return [
-		`M ${x} ${top}`,
-		`L ${x} ${y}`,
-		`L ${left} ${y}`,
-		`L ${left} ${y + size}`,
-		`L ${x} ${y + size}`,
-		`L ${x} ${bottom}`,
-		`L ${x + size} ${bottom}`,
-		`L ${x + size} ${y + size}`,
-		`L ${right} ${y + size}`,
-		`L ${right} ${y}`,
-		`L ${x + size} ${y}`,
-		`L ${x + size} ${top}`,
-		'Z'
-	].join(' ');
+	const endPosition = getExplosionArmPosition(animation.explosion, direction, length);
+	return [renderBlastArmBody(animation, direction, length), renderBlastSprite('end', endPosition.x, endPosition.y, direction, animation)];
+};
+
+const getExplosionArmPosition = (explosion: BombermanExplosionEvent, direction: BlastDirection, distance: number) => {
+	switch (direction) {
+		case 'left':
+			return { x: explosion.x - distance, y: explosion.y };
+		case 'right':
+			return { x: explosion.x + distance, y: explosion.y };
+		case 'up':
+			return { x: explosion.x, y: explosion.y - distance };
+		case 'down':
+			return { x: explosion.x, y: explosion.y + distance };
+	}
+};
+
+const renderBlastSprite = (kind: BlastSpriteKind, x: number, y: number, direction: BlastDirection, animation: BlastAnimationContext) => {
+	const placement = getBlastPlacement(kind, x, y, direction);
+	const rotation = placement.degrees === 0 ? '' : ` transform="rotate(${placement.degrees} ${placement.centerX} ${placement.centerY})"`;
+	return `<use x="${placement.x}" y="${placement.y}" width="${placement.width}" height="${placement.height}" href="${toSpriteRef(BLAST_SPRITES[kind][0])}"${rotation}>${getBlastSpriteAnimation(kind, animation)}</use>`;
+};
+
+const renderBlastArmBody = (animation: BlastAnimationContext, direction: BlastDirection, length: number) => {
+	const placement = getBlastArmBodyPlacement(animation.explosion, direction, length);
+	const rotation = placement.degrees === 0 ? '' : ` transform="rotate(${placement.degrees} ${placement.centerX} ${placement.centerY})"`;
+	return `<use x="${placement.x}" y="${placement.y}" width="${placement.width}" height="${placement.height}" href="${toSpriteRef(BLAST_SPRITES.segment[0])}"${rotation}>${getBlastSpriteAnimation('segment', animation)}</use>`;
+};
+
+const getBlastPlacement = (kind: BlastSpriteKind, x: number, y: number, direction: BlastDirection) => {
+	if (kind === 'center') {
+		return {
+			x: toSvgX(x),
+			y: toSvgY(y),
+			width: CELL_SIZE,
+			height: CELL_SIZE,
+			centerX: toSvgX(x) + CELL_SIZE / 2,
+			centerY: toSvgY(y) + CELL_SIZE / 2,
+			degrees: 0
+		};
+	}
+
+	const axisLength = CELL_SIZE;
+	const cellX = toSvgX(x);
+	const cellY = toSvgY(y);
+
+	switch (direction) {
+		case 'left':
+			return {
+				x: cellX,
+				y: cellY,
+				width: axisLength,
+				height: CELL_SIZE,
+				centerX: cellX + axisLength / 2,
+				centerY: cellY + CELL_SIZE / 2,
+				degrees: 180
+			};
+		case 'right':
+			return {
+				x: cellX,
+				y: cellY,
+				width: axisLength,
+				height: CELL_SIZE,
+				centerX: cellX + axisLength / 2,
+				centerY: cellY + CELL_SIZE / 2,
+				degrees: 0
+			};
+		case 'up': {
+			const centerX = cellX + CELL_SIZE / 2;
+			const centerY = cellY + axisLength / 2;
+			return {
+				x: centerX - axisLength / 2,
+				y: centerY - CELL_SIZE / 2,
+				width: axisLength,
+				height: CELL_SIZE,
+				centerX,
+				centerY,
+				degrees: -90
+			};
+		}
+		case 'down': {
+			const centerX = cellX + CELL_SIZE / 2;
+			const centerY = cellY + axisLength / 2;
+			return {
+				x: centerX - axisLength / 2,
+				y: centerY - CELL_SIZE / 2,
+				width: axisLength,
+				height: CELL_SIZE,
+				centerX,
+				centerY,
+				degrees: 90
+			};
+		}
+	}
+};
+
+const getBlastArmBodyPlacement = (explosion: BombermanExplosionEvent, direction: BlastDirection, length: number) => {
+	const originCenterX = toSvgX(explosion.x) + CELL_SIZE / 2;
+	const originCenterY = toSvgY(explosion.y) + CELL_SIZE / 2;
+	const end = getExplosionArmPosition(explosion, direction, length);
+	const endCenterX = toSvgX(end.x) + CELL_SIZE / 2;
+	const endCenterY = toSvgY(end.y) + CELL_SIZE / 2;
+
+	if (direction === 'left' || direction === 'right') {
+		const left = Math.min(originCenterX, endCenterX);
+		const right = Math.max(originCenterX, endCenterX);
+		return {
+			x: left,
+			y: originCenterY - CELL_SIZE / 2,
+			width: right - left,
+			height: CELL_SIZE,
+			centerX: (left + right) / 2,
+			centerY: originCenterY,
+			degrees: direction === 'left' ? 180 : 0
+		};
+	}
+
+	const top = Math.min(originCenterY, endCenterY);
+	const bottom = Math.max(originCenterY, endCenterY);
+	return {
+		x: originCenterX - (bottom - top) / 2,
+		y: (top + bottom) / 2 - CELL_SIZE / 2,
+		width: bottom - top,
+		height: CELL_SIZE,
+		centerX: originCenterX,
+		centerY: (top + bottom) / 2,
+		degrees: direction === 'up' ? -90 : 90
+	};
+};
+
+const getBlastSpriteAnimation = (kind: BlastSpriteKind, { explosion, totalFrames, totalDurationMs }: BlastAnimationContext) => {
+	const frameRefs = BLAST_SPRITES[kind].map(toSpriteRef);
+	const keyTimes = [
+		0,
+		...frameRefs.map((_, frameOffset) => frameToKeyTime(explosion.frameIndex + frameOffset, totalFrames)),
+		frameToKeyTime(explosion.frameIndex + explosion.remainingFrames, totalFrames),
+		1
+	];
+	const values = [frameRefs[0], ...frameRefs, frameRefs[frameRefs.length - 1], frameRefs[frameRefs.length - 1]];
+	return `<animate attributeName="href" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite" keyTimes="${keyTimes.join(';')}" values="${values.join(';')}"/>`;
 };
 
 const getExplosionArmLengths = (explosion: BombermanExplosionEvent) => {
@@ -459,11 +602,17 @@ const buildSpriteDefs = () => {
 		for (const sprite of cycle) symbols.set(sprite.id, sprite);
 	}
 	symbols.set(BOMB_SPRITE.id, BOMB_SPRITE);
+	for (const cycle of Object.values(BLAST_SPRITES)) {
+		for (const sprite of cycle) symbols.set(sprite.id, sprite);
+	}
 	for (const sprite of Object.values(ITEM_SPRITES)) symbols.set(sprite.id, sprite);
 
 	const defs = Array.from(symbols.entries())
 		.map(
-			([id, sprite]) => `<symbol id="${id}" viewBox="0 0 ${sprite.frame.width} ${sprite.frame.height}" overflow="visible">
+			([
+				id,
+				sprite
+			]) => `<symbol id="${id}" viewBox="0 0 ${sprite.frame.width} ${sprite.frame.height}" overflow="visible"${sprite.preserveAspectRatio ? ` preserveAspectRatio="${sprite.preserveAspectRatio}"` : ''}>
 				<image width="${sprite.frame.width}" height="${sprite.frame.height}" href="${sprite.frame.data}" preserveAspectRatio="xMidYMid meet" style="image-rendering: pixelated;"${sprite.flipX ? ` transform="translate(${sprite.frame.width} 0) scale(-1 1)"` : ''}/>
 			</symbol>`
 		)
