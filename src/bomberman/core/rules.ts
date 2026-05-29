@@ -36,8 +36,14 @@ export const isEmptyCell = (store: BombermanStore, { x, y }: BombermanPosition) 
 export const bombAt = (store: BombermanStore, { x, y }: BombermanPosition) =>
 	store.bombs.find((bomb) => !bomb.exploded && bomb.x === x && bomb.y === y);
 
+export const isActiveExplosionCell = (store: BombermanStore, position: BombermanPosition, ownerId?: BombermanPlayer['id']) =>
+	store.activeExplosions.some(
+		(explosion) =>
+			(ownerId === undefined || explosion.ownerId === ownerId) && explosion.affectedCells.some((cell) => samePosition(cell, position))
+	);
+
 export const isPassableCell = (store: BombermanStore, position: BombermanPosition) =>
-	isEmptyCell(store, position) && !bombAt(store, position);
+	isEmptyCell(store, position) && !bombAt(store, position) && !isActiveExplosionCell(store, position);
 
 export const getBlastCells = (
 	store: BombermanStore,
@@ -62,12 +68,6 @@ export const getBlastCells = (
 	return cells;
 };
 
-export const isActiveExplosionCell = (store: BombermanStore, position: BombermanPosition, ownerId?: BombermanPlayer['id']) =>
-	store.activeExplosions.some(
-		(explosion) =>
-			(ownerId === undefined || explosion.ownerId === ownerId) && explosion.affectedCells.some((cell) => samePosition(cell, position))
-	);
-
 export const bombsThreateningAt = (store: BombermanStore, position: BombermanPosition, ownerId?: BombermanPlayer['id']) =>
 	store.bombs.filter(
 		(bomb) =>
@@ -85,6 +85,7 @@ export const isOwnExplosionDangerCell = (store: BombermanStore, player: Bomberma
 export const isSafeStandingCell = (store: BombermanStore, player: BombermanPlayer, position: BombermanPosition) =>
 	isEmptyCell(store, position) &&
 	!bombAt(store, position) &&
+	!isActiveExplosionCell(store, position) &&
 	!isOwnExplosionDangerCell(store, player, position);
 
 export const getAdjacentPositions = ({ x, y }: BombermanPosition): (BombermanPosition & { direction: BombermanDirection })[] =>

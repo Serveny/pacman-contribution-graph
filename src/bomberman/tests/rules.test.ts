@@ -260,7 +260,57 @@ describe('Bomberman explosion handling', () => {
 
 		movePlayer(store, store.players[0]);
 
-		expect(store.players[0]).toMatchObject({ x: 0, y: 0 });
+		expect(store.players[0]).not.toMatchObject({ x: 1, y: 0 });
+		expect(store.players[0].alive).toBe(true);
+	});
+
+	it('does not move a player into any active explosion while chasing', () => {
+		const store = createStore();
+		store.grid = createEmptyGrid();
+		store.players = [
+			{
+				id: 1,
+				name: 'Bomberman',
+				x: 0,
+				y: 0,
+				alive: true,
+				direction: 'right',
+				bombsPlaced: 0,
+				cellsDestroyed: 0,
+				blastRangeBonus: 0,
+				sprite: ''
+			},
+			{
+				id: 2,
+				name: 'Plunder Bomber',
+				x: 2,
+				y: 0,
+				alive: true,
+				direction: 'left',
+				bombsPlaced: 0,
+				cellsDestroyed: 0,
+				blastRangeBonus: 0,
+				sprite: ''
+			}
+		];
+		store.activeExplosions = [
+			{
+				bombId: 0,
+				ownerId: 2,
+				x: 1,
+				y: 0,
+				blastRange: 1,
+				remainingFrames: 2,
+				affectedCells: [{ x: 1, y: 0 }],
+				hitPlayerIds: [],
+				sprite: ''
+			}
+		];
+
+		movePlayer(store, store.players[0]);
+
+		expect(store.players[0]).not.toMatchObject({ x: 1, y: 0 });
+		expect(store.players[0].alive).toBe(true);
 	});
 
 	it('reveals hidden items when their contribution cell is destroyed and applies blast range on pickup', () => {
