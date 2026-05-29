@@ -4,6 +4,7 @@ import {
 	bombWouldHitVisibleItem,
 	bombWouldHitOpponent,
 	bombWouldHitTarget,
+	canPlaceBomb,
 	DIRECTIONS,
 	getBlastCells,
 	isContributionCell,
@@ -135,8 +136,7 @@ export const movePlayer = (store: BombermanStore, player: BombermanPlayer) => {
 		return;
 	}
 
-	const hasOwnActiveBomb = store.bombs.some((bomb) => !bomb.exploded && bomb.ownerId === player.id);
-	if (hasOwnActiveBomb) return;
+	if (!canPlaceBomb(store, player)) return;
 
 	const bombSpot = findBestBombSpotTowardOpponent(store, player, opponent);
 	const next = bombSpot?.firstStep;

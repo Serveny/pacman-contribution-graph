@@ -44,6 +44,7 @@ const createPlayer = (
 	bombsPlaced: 0,
 	cellsDestroyed: 0,
 	blastRangeBonus: 0,
+	bombCapacityBonus: 0,
 	speedBonus: 0,
 	movementStepProgress: 0,
 	sprite,

@@ -8,7 +8,7 @@ import {
 	GRID_HEIGHT,
 	GRID_WIDTH
 } from './constants';
-import { destroyVisibleItemAt, getPlayerBlastRange, hasVisibleItemAt, revealItemAt } from './items';
+import { destroyVisibleItemAt, getPlayerBlastRange, getPlayerBombLimit, hasVisibleItemAt, revealItemAt } from './items';
 
 export type DirectionVector = BombermanPosition & { direction: BombermanDirection };
 
@@ -148,7 +148,7 @@ export const canPlaceBomb = (store: BombermanStore, player: BombermanPlayer) =>
 	player.alive &&
 	isEmptyCell(store, player) &&
 	!bombAt(store, player) &&
-	!store.bombs.some((bomb) => !bomb.exploded && bomb.ownerId === player.id);
+	store.bombs.filter((bomb) => !bomb.exploded && bomb.ownerId === player.id).length < getPlayerBombLimit(player);
 
 export const bombWouldHitContribution = (store: BombermanStore, position: BombermanPosition, blastRange = BOMBERMAN_BLAST_RANGE) =>
 	getBlastCells(store, position, blastRange).some((cell) => isContributionCell(store, cell));

@@ -397,6 +397,50 @@ describe('Bomberman explosion handling', () => {
 		]);
 	});
 
+	it('applies bomb capacity on pickup and allows one additional active bomb', () => {
+		const store = createStore();
+		store.grid = createEmptyGrid();
+		store.items = [
+			{
+				id: 0,
+				type: 'bomb-capacity',
+				x: 0,
+				y: 0,
+				hidden: false,
+				collected: false,
+				destroyed: false,
+				sprite: ''
+			}
+		];
+		store.players = [
+			{
+				id: 1,
+				name: 'Bomberman',
+				x: 0,
+				y: 0,
+				alive: true,
+				direction: 'right',
+				bombsPlaced: 0,
+				cellsDestroyed: 0,
+				blastRangeBonus: 0,
+				bombCapacityBonus: 0,
+				sprite: ''
+			}
+		];
+
+		collectVisibleItemsAt(store, store.players[0]);
+		placeBomb(store, store.players[0]);
+		store.players[0].x = 1;
+		placeBomb(store, store.players[0]);
+		store.players[0].x = 2;
+		placeBomb(store, store.players[0]);
+
+		expect(store.items[0]).toMatchObject({ collected: true });
+		expect(store.players[0].bombCapacityBonus).toBe(1);
+		expect(store.players[0].bombsPlaced).toBe(2);
+		expect(store.bombs).toHaveLength(2);
+	});
+
 	it('stops an upgraded bomb blast at the first contribution block in each direction', () => {
 		const store = createStore();
 		store.grid = createEmptyGrid();

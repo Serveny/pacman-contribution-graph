@@ -2,6 +2,7 @@ import { GridCell } from '../../shared/types';
 import { BombermanItem, BombermanItemType, BombermanPlayer, BombermanPosition, BombermanStore } from '../types';
 import {
 	BOMBERMAN_BLAST_RANGE,
+	BOMBERMAN_BOMB_LIMIT,
 	BOMBERMAN_ITEM_DROP_CHANCE_BY_LEVEL,
 	BOMBERMAN_ITEM_SPRITES,
 	BOMBERMAN_PLAYER_SPEED_UNITS,
@@ -34,10 +35,19 @@ export const BOMBERMAN_ITEM_DEFINITIONS: Record<BombermanItemType, BombermanItem
 		apply: (player) => {
 			player.speedBonus = (player.speedBonus ?? 0) + BOMBERMAN_SPEED_ITEM_BONUS;
 		}
+	},
+	'bomb-capacity': {
+		type: 'bomb-capacity',
+		sprite: BOMBERMAN_ITEM_SPRITES.bombCapacity,
+		apply: (player) => {
+			player.bombCapacityBonus = (player.bombCapacityBonus ?? 0) + 1;
+		}
 	}
 };
 
 export const getPlayerBlastRange = (player: BombermanPlayer) => BOMBERMAN_BLAST_RANGE + (player.blastRangeBonus ?? 0);
+
+export const getPlayerBombLimit = (player: BombermanPlayer) => BOMBERMAN_BOMB_LIMIT + (player.bombCapacityBonus ?? 0);
 
 export const getPlayerMoveCount = (player: BombermanPlayer) => {
 	const speedUnits = BOMBERMAN_PLAYER_SPEED_UNITS + (player.speedBonus ?? 0);
