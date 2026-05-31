@@ -6,11 +6,18 @@ const weeksBetween = (start: Date, end: Date) => Math.floor((end.getTime() - sta
 
 const truncateToUTCDate = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 
+const getLatestContributionDate = (store: BaseStore) =>
+	store.contributions.reduce<Date | undefined>((latestDate, contribution) => {
+		const contributionDate = truncateToUTCDate(new Date(contribution.date));
+		return latestDate === undefined || contributionDate > latestDate ? contributionDate : latestDate;
+	}, undefined);
+
 const getGridEndDate = (store: BaseStore) => {
 	const endDate = truncateToUTCDate(new Date());
+	const latestContributionDate = getLatestContributionDate(store);
 
-	if (store.config.includeFutureContributions) {
-		endDate.setUTCDate(endDate.getUTCDate() + (GRID_HEIGHT - 1 - endDate.getUTCDay()));
+	if (latestContributionDate && latestContributionDate > endDate) {
+		return latestContributionDate;
 	}
 
 	return endDate;
