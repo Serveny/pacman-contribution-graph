@@ -7,10 +7,6 @@ const fetchScenarioContributions = async (store: BaseStore): Promise<Contributio
 	generateScenarioContributions(store.config.scenario).contributions;
 
 const fetchContributions = async (store: BaseStore): Promise<Contribution[]> => {
-	if (store.config.contributions) {
-		return store.config.contributions;
-	}
-
 	switch (store.config.platform) {
 		case 'gitlab':
 			return await fetchGitlabContributions(store);
