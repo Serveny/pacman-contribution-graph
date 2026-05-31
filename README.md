@@ -11,13 +11,14 @@ Transform your GitHub or GitLab contribution graph into arcade games! This JavaS
 
 ## 🕹️ Available Games
 
-| Game                 | Description                                                          |
-| -------------------- | -------------------------------------------------------------------- |
-| 👻 **Pac-Man**       | Pac-Man eats your contributions while ghosts give chase              |
-| 🧱 **Breakout**      | A ball bounces around breaking your contribution bricks              |
-| 🚀 **Galaga**        | A fighter ship shoots lasers at your contribution grid               |
-| 🫧 **Puzzle Bobble** | A cannon fires colored bubbles to pop matching contribution clusters |
-| 💣 **Bomberman**     | Two bombers blast contribution cells across the graph                |
+| Game                 | Game Name     | Description                                                          |
+| -------------------- | ------------- | -------------------------------------------------------------------- |
+| 👻 **Pac-Man**       | pacman        | Pac-Man eats your contributions while ghosts give chase              |
+| 🧱 **Breakout**      | breakout      | A ball bounces around breaking your contribution bricks              |
+| 🚀 **Galaga**        | galaga        | A fighter ship shoots lasers at your contribution grid               |
+| 🫧 **Puzzle Bobble** | puzzle-bobble | A cannon fires colored bubbles to pop matching contribution clusters |
+| 💣 **Bomberman**     | bomberman     | Two bombers blast contribution cells across the graph                |
+| 💠 **Minesweeper**   | minesweeper   | A solver clears cells, flags guaranteed mines, and survives guesses  |
 
 More games coming soon!
 
@@ -59,12 +60,20 @@ More games coming soon!
     <img alt="bomberman contribution graph" src="assets/demo/bomberman.svg">
 </picture>
 
+### Minesweeper preview
+
+<picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/demo/minesweeper-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/demo/minesweeper.svg">
+    <img alt="bomberman contribution graph" src="assets/demo/minesweeper.svg">
+</picture>
+
 ## 🎮 Features
 
 Elevate your GitHub profile with the Pac-Man Contribution Graph Game and add a playful touch to your coding journey!
 
 - **Contribution Visualization**: Converts your GitHub or GitLab contribution data into a colorful grid.
-- **Multiple Games**: Classic Pac-Man, Breakout, Galaga, Puzzle Bobble, and Bomberman, with more planned
+- **Multiple Games**: Classic Pac-Man, Breakout, Galaga, Puzzle Bobble, Bomberman, and Minesweeper, with more planned
 - **Multiple Themes**: Choose between different themes, such as GitHub Dark and GitLab Dark.
 - **Customizable Settings**: Adjust game settings.
 - **GitHub Integration**: Automatically fetches your contribution data via GraphQL API
@@ -121,7 +130,7 @@ Here's how to set up and run the games:
     ```
 
 3. **Customize Settings**: Adjust the parameters as needed:
-    - `game`: The arcade game to generate — `'pacman'`, `'breakout'`, `'galaga'`, `'puzzle-bobble'`, or `'bomberman'`.
+    - `game`: The arcade game name to generate. For valid names, see table above.
     - `username`: Your GitHub or GitLab username.
     - `platform`: Specify `'github'` or `'gitlab'`.
     - `gameTheme`: Choose between `'github'`, `'github-dark'`, `'gitlab'`, or `'gitlab-dark'`.
@@ -170,10 +179,8 @@ To showcase the Pac-Man game on your GitHub profile, follow these steps:
                       uses: abozanona/pacman-contribution-graph@main
                       with:
                           github_user_name: ${{ github.repository_owner }}
-                          # Comma-separated list of games to generate.
-                          # Valid values: pacman, breakout, galaga, puzzle-bobble, bomberman
-                          # Default: pacman
-                          games: 'pacman,breakout,galaga,puzzle-bobble,bomberman'
+                          # Comma-separated list of game names to generate. Default: pacman
+                          games: 'pacman,breakout'
 
                     # Push the generated SVGs to the output branch
                     - name: push SVGs to the output branch

@@ -1,10 +1,10 @@
 /******/ var __webpack_modules__ = ({
 
-/***/ "./src/bomberman/core/ai.ts"
+/***/ "./src/bomberman/core/ai.ts":
 /*!**********************************!*\
   !*** ./src/bomberman/core/ai.ts ***!
   \**********************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -112,13 +112,13 @@ const movePlayerTo = (player, next) => {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/bomberman/core/constants.ts"
+/***/ "./src/bomberman/core/constants.ts":
 /*!*****************************************!*\
   !*** ./src/bomberman/core/constants.ts ***!
   \*****************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -559,13 +559,13 @@ const BOMBERMAN_SPRITE_SETS = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/bomberman/core/game.ts"
+/***/ "./src/bomberman/core/game.ts":
 /*!************************************!*\
   !*** ./src/bomberman/core/game.ts ***!
   \************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -672,13 +672,13 @@ const Game = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/bomberman/core/pathfinding.ts"
+/***/ "./src/bomberman/core/pathfinding.ts":
 /*!*******************************************!*\
   !*** ./src/bomberman/core/pathfinding.ts ***!
   \*******************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -883,13 +883,13 @@ const canEscapeAfterPlantingBomb = (store, player) => {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/bomberman/core/rules.ts"
+/***/ "./src/bomberman/core/rules.ts":
 /*!*************************************!*\
   !*** ./src/bomberman/core/rules.ts ***!
   \*************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -1081,13 +1081,13 @@ const updateExplosions = (store) => {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/bomberman/core/store.ts"
+/***/ "./src/bomberman/core/store.ts":
 /*!*************************************!*\
   !*** ./src/bomberman/core/store.ts ***!
   \*************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -1111,13 +1111,13 @@ const Store = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/bomberman/index.ts"
+/***/ "./src/bomberman/index.ts":
 /*!********************************!*\
   !*** ./src/bomberman/index.ts ***!
   \********************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -1170,13 +1170,13 @@ class BombermanRenderer {
 }
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/bomberman/renderers/animation.ts"
+/***/ "./src/bomberman/renderers/animation.ts":
 /*!**********************************************!*\
   !*** ./src/bomberman/renderers/animation.ts ***!
   \**********************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -1254,13 +1254,13 @@ const appendFinalKeyframe = (keyTimes, values) => {
 const frameToKeyTime = (frameIndex, totalFrames) => Number((Math.min(frameIndex, Math.max(totalFrames - 1, 1)) / Math.max(totalFrames - 1, 1)).toFixed(_core_constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_SVG.PRECISION));
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/bomberman/renderers/svg.ts"
+/***/ "./src/bomberman/renderers/svg.ts":
 /*!****************************************!*\
   !*** ./src/bomberman/renderers/svg.ts ***!
   \****************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -1618,13 +1618,13 @@ const Renderer = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/breakout/core/constants.ts"
+/***/ "./src/breakout/core/constants.ts":
 /*!****************************************!*\
   !*** ./src/breakout/core/constants.ts ***!
   \****************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -1682,13 +1682,13 @@ const PADDLE_COLOR = '#ffffff';
 const BALL_SHADOW_COLOR = '#aaaaaa';
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/breakout/core/game.ts"
+/***/ "./src/breakout/core/game.ts":
 /*!***********************************!*\
   !*** ./src/breakout/core/game.ts ***!
   \***********************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -1967,13 +1967,13 @@ const BreakoutGame = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/breakout/core/store.ts"
+/***/ "./src/breakout/core/store.ts":
 /*!************************************!*\
   !*** ./src/breakout/core/store.ts ***!
   \************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -1996,13 +1996,13 @@ const BreakoutStore = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/breakout/index.ts"
+/***/ "./src/breakout/index.ts":
 /*!*******************************!*\
   !*** ./src/breakout/index.ts ***!
   \*******************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2055,13 +2055,13 @@ class BreakoutRenderer {
 }
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/breakout/renderers/svg.ts"
+/***/ "./src/breakout/renderers/svg.ts":
 /*!***************************************!*\
   !*** ./src/breakout/renderers/svg.ts ***!
   \***************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2222,13 +2222,13 @@ const buildChangingValuesAnimation = (store, values) => {
 const BreakoutSVG = { generateAnimatedSVG };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/galaga/core/constants.ts"
+/***/ "./src/galaga/core/constants.ts":
 /*!**************************************!*\
   !*** ./src/galaga/core/constants.ts ***!
   \**************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2282,13 +2282,13 @@ const BULLET_IMAGE_DATA = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAC
 const SHIP_IMAGE_DATA = 'data:image/png;base64,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';
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/galaga/core/game.ts"
+/***/ "./src/galaga/core/game.ts":
 /*!*********************************!*\
   !*** ./src/galaga/core/game.ts ***!
   \*********************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2488,13 +2488,13 @@ const updateGame = (store) => {
 const GalagaGame = { startGame, stopGame };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/galaga/core/store.ts"
+/***/ "./src/galaga/core/store.ts":
 /*!**********************************!*\
   !*** ./src/galaga/core/store.ts ***!
   \**********************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2519,13 +2519,13 @@ const GalagaStore = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/galaga/index.ts"
+/***/ "./src/galaga/index.ts":
 /*!*****************************!*\
   !*** ./src/galaga/index.ts ***!
   \*****************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2578,13 +2578,13 @@ class GalagaRenderer {
 }
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/galaga/renderers/svg.ts"
+/***/ "./src/galaga/renderers/svg.ts":
 /*!*************************************!*\
   !*** ./src/galaga/renderers/svg.ts ***!
   \*************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2873,13 +2873,764 @@ const buildChangingValuesAnimation = (store, values) => {
 const GalagaSVG = { generateAnimatedSVG };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/pacman/core/constants.ts"
+/***/ "./src/minesweeper/core/constants.ts":
+/*!*******************************************!*\
+  !*** ./src/minesweeper/core/constants.ts ***!
+  \*******************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   CELL_SIZE: () => (/* reexport safe */ _shared_constants__WEBPACK_IMPORTED_MODULE_0__.CELL_SIZE),
+/* harmony export */   DELTA_TIME: () => (/* reexport safe */ _shared_constants__WEBPACK_IMPORTED_MODULE_0__.DELTA_TIME),
+/* harmony export */   GAP_SIZE: () => (/* reexport safe */ _shared_constants__WEBPACK_IMPORTED_MODULE_0__.GAP_SIZE),
+/* harmony export */   GRID_HEIGHT: () => (/* reexport safe */ _shared_constants__WEBPACK_IMPORTED_MODULE_0__.GRID_HEIGHT),
+/* harmony export */   GRID_WIDTH: () => (/* reexport safe */ _shared_constants__WEBPACK_IMPORTED_MODULE_0__.GRID_WIDTH),
+/* harmony export */   MINESWEEPER_CELL_RADIUS: () => (/* binding */ MINESWEEPER_CELL_RADIUS),
+/* harmony export */   MINESWEEPER_DURATION_DIVISOR: () => (/* binding */ MINESWEEPER_DURATION_DIVISOR),
+/* harmony export */   MINESWEEPER_END_HOLD_FRAMES: () => (/* binding */ MINESWEEPER_END_HOLD_FRAMES),
+/* harmony export */   MINESWEEPER_HEADER_HEIGHT: () => (/* binding */ MINESWEEPER_HEADER_HEIGHT),
+/* harmony export */   MINESWEEPER_MAX_MOVE_DURATION_MS: () => (/* binding */ MINESWEEPER_MAX_MOVE_DURATION_MS),
+/* harmony export */   MINESWEEPER_MAX_MOVE_FRAMES: () => (/* binding */ MINESWEEPER_MAX_MOVE_FRAMES),
+/* harmony export */   MINESWEEPER_MAX_STEPS: () => (/* binding */ MINESWEEPER_MAX_STEPS),
+/* harmony export */   MINESWEEPER_MIN_DURATION_MS: () => (/* binding */ MINESWEEPER_MIN_DURATION_MS),
+/* harmony export */   MINESWEEPER_MS_PER_FRAME: () => (/* binding */ MINESWEEPER_MS_PER_FRAME)
+/* harmony export */ });
+/* harmony import */ var _shared_constants__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../shared/constants */ "./src/shared/constants.ts");
+
+
+const MINESWEEPER_HEADER_HEIGHT = 24;
+const MINESWEEPER_CELL_RADIUS = 3;
+const MINESWEEPER_MIN_DURATION_MS = 5000;
+const MINESWEEPER_DURATION_DIVISOR = 1.2;
+const MINESWEEPER_MAX_STEPS = _shared_constants__WEBPACK_IMPORTED_MODULE_0__.GRID_WIDTH * _shared_constants__WEBPACK_IMPORTED_MODULE_0__.GRID_HEIGHT * 3;
+const MINESWEEPER_END_HOLD_FRAMES = 12;
+const MINESWEEPER_MAX_MOVE_DURATION_MS = 1000;
+const MINESWEEPER_MS_PER_FRAME = _shared_constants__WEBPACK_IMPORTED_MODULE_0__.DELTA_TIME / MINESWEEPER_DURATION_DIVISOR;
+const MINESWEEPER_MAX_MOVE_FRAMES = Math.max(1, Math.ceil(MINESWEEPER_MAX_MOVE_DURATION_MS / MINESWEEPER_MS_PER_FRAME));
+
+
+/***/ }),
+
+/***/ "./src/minesweeper/core/game.ts":
+/*!**************************************!*\
+  !*** ./src/minesweeper/core/game.ts ***!
+  \**************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   Game: () => (/* binding */ Game)
+/* harmony export */ });
+/* harmony import */ var _renderers_svg__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../renderers/svg */ "./src/minesweeper/renderers/svg.ts");
+/* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./constants */ "./src/minesweeper/core/constants.ts");
+var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+
+
+const getNeighbors = (x, y) => {
+    const neighbors = [];
+    for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+            if (dx === 0 && dy === 0)
+                continue;
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || nx >= _constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH || ny < 0 || ny >= _constants__WEBPACK_IMPORTED_MODULE_1__.GRID_HEIGHT)
+                continue;
+            neighbors.push({ x: nx, y: ny });
+        }
+    }
+    return neighbors;
+};
+const cloneBoard = (board) => board.map((col) => col.map((cell) => (Object.assign({}, cell))));
+const createResolvedHoldBoard = (store) => {
+    const holdBoard = cloneBoard(store.board);
+    for (const column of holdBoard) {
+        for (const cell of column) {
+            cell.showNumber = false;
+            const revealUnflaggedMine = cell.isMine && !cell.flagged;
+            cell.showMine = revealUnflaggedMine;
+            cell.highlightMine = revealUnflaggedMine;
+            if (revealUnflaggedMine) {
+                cell.flagged = false;
+            }
+        }
+    }
+    return holdBoard;
+};
+const forEachCell = (board, cb) => {
+    for (const column of board) {
+        for (const cell of column) {
+            cb(cell);
+        }
+    }
+};
+const countCells = (board, predicate) => {
+    let total = 0;
+    forEachCell(board, (cell) => {
+        if (predicate(cell))
+            total++;
+    });
+    return total;
+};
+const listCells = (board, predicate) => {
+    const cells = [];
+    forEachCell(board, (cell) => {
+        if (predicate(cell))
+            cells.push(cell);
+    });
+    return cells;
+};
+const buildBoard = (store) => {
+    store.board = Array.from({ length: _constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH }, (_, x) => Array.from({ length: _constants__WEBPACK_IMPORTED_MODULE_1__.GRID_HEIGHT }, (_, y) => {
+        var _a, _b;
+        return ({
+            x,
+            y,
+            isMine: ((_b = (_a = store.grid[x]) === null || _a === void 0 ? void 0 : _a[y]) === null || _b === void 0 ? void 0 : _b.commitsCount) > 0,
+            adjacentMines: 0,
+            revealed: false,
+            flagged: false,
+            exploded: false,
+            guessed: false
+        });
+    }));
+    for (let x = 0; x < _constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH; x++) {
+        for (let y = 0; y < _constants__WEBPACK_IMPORTED_MODULE_1__.GRID_HEIGHT; y++) {
+            const cell = store.board[x][y];
+            cell.adjacentMines = getNeighbors(x, y).filter((n) => store.board[n.x][n.y].isMine).length;
+        }
+    }
+    store.totalMines = countCells(store.board, (cell) => cell.isMine);
+};
+const resetGameState = (store) => {
+    store.frameCount = 0;
+    store.actions = [];
+    store.snapshots = [];
+    store.flagsPlaced = 0;
+    store.clearedSafeCells = 0;
+    store.explodedMines = 0;
+    store.mouse = { x: Math.floor(_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH / 2), y: Math.floor(_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_HEIGHT / 2) };
+    buildBoard(store);
+    pushSnapshot(store);
+};
+const pushSnapshot = (store, board = store.board) => {
+    store.snapshots.push({
+        board: cloneBoard(board),
+        mouse: Object.assign({}, store.mouse)
+    });
+    store.frameCount = store.snapshots.length - 1;
+};
+const getHiddenNeighbors = (store, x, y) => getNeighbors(x, y)
+    .map((pos) => store.board[pos.x][pos.y])
+    .filter((cell) => !cell.revealed && !cell.flagged);
+const getKnownMineNeighborsCount = (store, x, y) => getNeighbors(x, y)
+    .map((pos) => store.board[pos.x][pos.y])
+    .filter((cell) => cell.flagged || cell.exploded).length;
+const selectDeterministicMove = (store) => {
+    for (let x = 0; x < _constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH; x++) {
+        for (let y = 0; y < _constants__WEBPACK_IMPORTED_MODULE_1__.GRID_HEIGHT; y++) {
+            const cell = store.board[x][y];
+            if (!cell.revealed)
+                continue;
+            const hiddenNeighbors = getHiddenNeighbors(store, x, y);
+            if (hiddenNeighbors.length === 0)
+                continue;
+            const knownMineNeighbors = getKnownMineNeighborsCount(store, x, y);
+            const missingMines = Math.max(cell.adjacentMines - knownMineNeighbors, 0);
+            if (missingMines === hiddenNeighbors.length) {
+                const target = hiddenNeighbors[0];
+                return { x: target.x, y: target.y, type: 'flag', probability: 1 };
+            }
+            if (missingMines === 0) {
+                const target = hiddenNeighbors[0];
+                return { x: target.x, y: target.y, type: 'reveal', probability: 0 };
+            }
+        }
+    }
+    return null;
+};
+const estimateMineProbabilities = (store) => {
+    var _a;
+    const probabilityMap = new Map();
+    const constrained = new Set();
+    const unresolvedCells = listCells(store.board, (cell) => !cell.revealed && !cell.flagged);
+    if (unresolvedCells.length === 0)
+        return probabilityMap;
+    const flaggedCount = countCells(store.board, (cell) => cell.flagged);
+    const globalMineProbability = Math.max(0, (store.totalMines - flaggedCount) / unresolvedCells.length);
+    for (const cell of unresolvedCells) {
+        probabilityMap.set(`${cell.x}:${cell.y}`, globalMineProbability);
+    }
+    for (let x = 0; x < _constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH; x++) {
+        for (let y = 0; y < _constants__WEBPACK_IMPORTED_MODULE_1__.GRID_HEIGHT; y++) {
+            const revealed = store.board[x][y];
+            if (!revealed.revealed)
+                continue;
+            const hiddenNeighbors = getHiddenNeighbors(store, x, y);
+            if (hiddenNeighbors.length === 0)
+                continue;
+            const knownMineNeighbors = getKnownMineNeighborsCount(store, x, y);
+            const missingMines = Math.max(revealed.adjacentMines - knownMineNeighbors, 0);
+            const localProbability = missingMines / hiddenNeighbors.length;
+            for (const neighbor of hiddenNeighbors) {
+                const key = `${neighbor.x}:${neighbor.y}`;
+                constrained.add(key);
+                const current = (_a = probabilityMap.get(key)) !== null && _a !== void 0 ? _a : globalMineProbability;
+                probabilityMap.set(key, Math.max(current, localProbability));
+            }
+        }
+    }
+    for (const cell of unresolvedCells) {
+        const key = `${cell.x}:${cell.y}`;
+        if (!constrained.has(key)) {
+            probabilityMap.set(key, globalMineProbability);
+        }
+    }
+    return probabilityMap;
+};
+const selectBestGuess = (store) => {
+    var _a, _b;
+    const unresolvedCells = listCells(store.board, (cell) => !cell.revealed && !cell.flagged);
+    if (unresolvedCells.length === 0)
+        return null;
+    const probabilities = estimateMineProbabilities(store);
+    let best = unresolvedCells[0];
+    let bestProbability = (_a = probabilities.get(`${best.x}:${best.y}`)) !== null && _a !== void 0 ? _a : 0.5;
+    for (const candidate of unresolvedCells) {
+        const p = (_b = probabilities.get(`${candidate.x}:${candidate.y}`)) !== null && _b !== void 0 ? _b : 0.5;
+        if (p < bestProbability || (p === bestProbability && candidate.adjacentMines < best.adjacentMines)) {
+            best = candidate;
+            bestProbability = p;
+        }
+    }
+    return {
+        x: best.x,
+        y: best.y,
+        type: 'reveal',
+        probability: Math.min(Math.max(bestProbability, 0), 1)
+    };
+};
+const revealCell = (store, x, y, guessed, probability) => {
+    const cell = store.board[x][y];
+    if (cell.revealed || cell.flagged)
+        return;
+    if (cell.isMine) {
+        cell.revealed = true;
+        cell.guessed = guessed;
+        cell.exploded = true;
+        store.explodedMines++;
+        store.actions.push({ frameIndex: store.frameCount, type: 'explode', x, y, adjacentMines: cell.adjacentMines, probability });
+        return;
+    }
+    const queue = [{ x, y }];
+    const visited = new Set();
+    while (queue.length > 0) {
+        const current = queue.shift();
+        const key = `${current.x}:${current.y}`;
+        if (visited.has(key))
+            continue;
+        visited.add(key);
+        const currentCell = store.board[current.x][current.y];
+        if (currentCell.revealed || currentCell.flagged || currentCell.isMine)
+            continue;
+        currentCell.revealed = true;
+        currentCell.guessed = current.x === x && current.y === y ? guessed : false;
+        store.clearedSafeCells++;
+        store.actions.push({
+            frameIndex: store.frameCount,
+            type: 'reveal',
+            x: current.x,
+            y: current.y,
+            adjacentMines: currentCell.adjacentMines,
+            probability
+        });
+        if (currentCell.adjacentMines !== 0)
+            continue;
+        for (const neighbor of getNeighbors(current.x, current.y)) {
+            const neighborCell = store.board[neighbor.x][neighbor.y];
+            if (neighborCell.revealed || neighborCell.flagged || neighborCell.isMine)
+                continue;
+            queue.push(neighbor);
+        }
+    }
+};
+const flagCell = (store, x, y) => {
+    const cell = store.board[x][y];
+    if (cell.revealed || cell.flagged)
+        return;
+    cell.flagged = true;
+    store.flagsPlaced++;
+    store.actions.push({ frameIndex: store.frameCount, type: 'flag', x, y, adjacentMines: cell.adjacentMines, probability: 1 });
+};
+const isBoardSolved = (store) => listCells(store.board, () => true).every((cell) => {
+    if (cell.isMine)
+        return cell.flagged || cell.exploded || cell.revealed;
+    return cell.revealed;
+});
+const animateMouseMove = (store, targetX, targetY) => {
+    const startX = store.mouse.x;
+    const startY = store.mouse.y;
+    const deltaX = targetX - startX;
+    const deltaY = targetY - startY;
+    const distance = Math.hypot(deltaX, deltaY);
+    if (distance === 0)
+        return;
+    const preferredSteps = Math.max(1, Math.ceil(distance * 2));
+    const steps = Math.min(preferredSteps, _constants__WEBPACK_IMPORTED_MODULE_1__.MINESWEEPER_MAX_MOVE_FRAMES);
+    for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        store.mouse.x = startX + deltaX * t;
+        store.mouse.y = startY + deltaY * t;
+        pushSnapshot(store);
+    }
+};
+const appendEndHoldFrames = (store) => {
+    const holdBoard = createResolvedHoldBoard(store);
+    for (let i = 0; i < _constants__WEBPACK_IMPORTED_MODULE_1__.MINESWEEPER_END_HOLD_FRAMES; i++) {
+        pushSnapshot(store, holdBoard);
+    }
+};
+const playSingleTurn = (store) => {
+    const deterministic = selectDeterministicMove(store);
+    const nextMove = deterministic !== null && deterministic !== void 0 ? deterministic : selectBestGuess(store);
+    if (!nextMove)
+        return false;
+    animateMouseMove(store, nextMove.x, nextMove.y);
+    if (nextMove.type === 'flag') {
+        flagCell(store, nextMove.x, nextMove.y);
+    }
+    else {
+        revealCell(store, nextMove.x, nextMove.y, !deterministic, nextMove.probability);
+    }
+    store.config.pointsIncreasedCallback(store.clearedSafeCells);
+    pushSnapshot(store);
+    return true;
+};
+const startGame = (store) => __awaiter(void 0, void 0, void 0, function* () {
+    resetGameState(store);
+    let guard = 0;
+    while (!isBoardSolved(store) && guard < _constants__WEBPACK_IMPORTED_MODULE_1__.MINESWEEPER_MAX_STEPS) {
+        const progressed = playSingleTurn(store);
+        if (!progressed)
+            break;
+        guard++;
+    }
+    appendEndHoldFrames(store);
+    const svg = _renderers_svg__WEBPACK_IMPORTED_MODULE_0__.Renderer.generateAnimatedSVG(store);
+    store.config.svgCallback(svg);
+    if (store.config.gameStatsCallback) {
+        store.config.gameStatsCallback({
+            totalScore: store.clearedSafeCells,
+            steps: store.frameCount,
+            ghostsEaten: store.explodedMines
+        });
+    }
+    store.config.gameOverCallback();
+});
+const stopGame = (store) => __awaiter(void 0, void 0, void 0, function* () {
+    clearInterval(store.gameInterval);
+});
+const Game = {
+    startGame,
+    stopGame
+};
+
+
+/***/ }),
+
+/***/ "./src/minesweeper/core/store.ts":
+/*!***************************************!*\
+  !*** ./src/minesweeper/core/store.ts ***!
+  \***************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   Store: () => (/* binding */ Store)
+/* harmony export */ });
+const Store = {
+    contributions: [],
+    grid: [],
+    monthLabels: [],
+    config: undefined,
+    gameInterval: 0,
+    frameCount: 0,
+    board: [],
+    actions: [],
+    snapshots: [],
+    mouse: { x: 0, y: 0 },
+    totalMines: 0,
+    flagsPlaced: 0,
+    clearedSafeCells: 0,
+    explodedMines: 0
+};
+
+
+/***/ }),
+
+/***/ "./src/minesweeper/index.ts":
+/*!**********************************!*\
+  !*** ./src/minesweeper/index.ts ***!
+  \**********************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   MinesweeperRenderer: () => (/* binding */ MinesweeperRenderer)
+/* harmony export */ });
+/* harmony import */ var _minesweeper_core_game__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../minesweeper/core/game */ "./src/minesweeper/core/game.ts");
+/* harmony import */ var _minesweeper_core_store__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../minesweeper/core/store */ "./src/minesweeper/core/store.ts");
+/* harmony import */ var _shared_providers_providers__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../shared/providers/providers */ "./src/shared/providers/providers.ts");
+/* harmony import */ var _shared_utils_utils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../shared/utils/utils */ "./src/shared/utils/utils.ts");
+var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+
+
+
+
+class MinesweeperRenderer {
+    constructor(conf) {
+        this.conf = Object.assign({}, conf);
+    }
+    start() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const defaultConfig = {
+                platform: 'github',
+                username: '',
+                svgCallback: (_) => { },
+                gameOverCallback: () => { },
+                gameTheme: 'github',
+                pointsIncreasedCallback: (_) => { },
+                githubSettings: { accessToken: '' }
+            };
+            this.store = JSON.parse(JSON.stringify(_minesweeper_core_store__WEBPACK_IMPORTED_MODULE_1__.Store));
+            this.store.config = Object.assign(Object.assign({}, defaultConfig), this.conf);
+            this.store.contributions = yield _shared_providers_providers__WEBPACK_IMPORTED_MODULE_2__.Providers.fetchContributions(this.store);
+            _shared_utils_utils__WEBPACK_IMPORTED_MODULE_3__.Utils.buildGrid(this.store);
+            _shared_utils_utils__WEBPACK_IMPORTED_MODULE_3__.Utils.buildMonthLabels(this.store);
+            yield _minesweeper_core_game__WEBPACK_IMPORTED_MODULE_0__.Game.startGame(this.store);
+            return this.store;
+        });
+    }
+    stop() {
+        _minesweeper_core_game__WEBPACK_IMPORTED_MODULE_0__.Game.stopGame(this.store);
+    }
+}
+
+
+/***/ }),
+
+/***/ "./src/minesweeper/renderers/svg.ts":
+/*!******************************************!*\
+  !*** ./src/minesweeper/renderers/svg.ts ***!
+  \******************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   Renderer: () => (/* binding */ Renderer),
+/* harmony export */   SVG_KEY_TIMES_PRECISION: () => (/* binding */ SVG_KEY_TIMES_PRECISION)
+/* harmony export */ });
+/* harmony import */ var _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../shared/utils/utils */ "./src/shared/utils/utils.ts");
+/* harmony import */ var _core_constants__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../core/constants */ "./src/minesweeper/core/constants.ts");
+
+
+const toX = (x) => x * (_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE);
+const toY = (y) => y * (_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.MINESWEEPER_HEADER_HEIGHT;
+const colorForNumber = (n) => {
+    switch (n) {
+        case 1:
+            return '#1f4acc';
+        case 2:
+            return '#1b7f37';
+        case 3:
+            return '#b01e1e';
+        case 4:
+            return '#5b2ca3';
+        case 5:
+            return '#7d1a1a';
+        case 6:
+            return '#00838f';
+        case 7:
+            return '#111111';
+        case 8:
+            return '#495057';
+        default:
+            return '#495057';
+    }
+};
+const getCellAt = (store, frameIndex, x, y) => store.snapshots[Math.min(frameIndex, store.snapshots.length - 1)].board[x][y];
+const buildCellFillSeries = (store, x, y, closedColor, openColor, explosionColor) => {
+    const values = [];
+    for (let i = 0; i < store.snapshots.length; i++) {
+        const cell = getCellAt(store, i, x, y);
+        if (cell.exploded || cell.highlightMine) {
+            values.push(explosionColor);
+        }
+        else if (cell.revealed) {
+            values.push(openColor);
+        }
+        else {
+            values.push(closedColor);
+        }
+    }
+    return values;
+};
+const buildFlagOpacitySeries = (store, x, y) => {
+    const values = [];
+    for (let i = 0; i < store.snapshots.length; i++) {
+        const cell = getCellAt(store, i, x, y);
+        values.push(cell.flagged ? '1' : '0');
+    }
+    return values;
+};
+const buildMineOpacitySeries = (store, x, y) => {
+    const values = [];
+    for (let i = 0; i < store.snapshots.length; i++) {
+        const cell = getCellAt(store, i, x, y);
+        values.push(cell.exploded || cell.showMine ? '1' : '0');
+    }
+    return values;
+};
+const getExplosionTriggerFrames = (store) => {
+    const triggers = [];
+    for (let i = 1; i < store.snapshots.length; i++) {
+        let triggered = false;
+        for (let x = 0; x < _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH && !triggered; x++) {
+            for (let y = 0; y < _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_HEIGHT; y++) {
+                const prevCell = store.snapshots[i - 1].board[x][y];
+                const currentCell = store.snapshots[i].board[x][y];
+                if (!prevCell.exploded && currentCell.exploded) {
+                    triggered = true;
+                    break;
+                }
+            }
+        }
+        if (triggered)
+            triggers.push(i);
+    }
+    return triggers;
+};
+const buildMineShakeTransformSeries = (store, x, y, triggerFrames) => {
+    const values = [];
+    const pattern = [
+        { x: 0, y: 0 },
+        { x: 1.3, y: -1.1 },
+        { x: -1.2, y: 1.1 },
+        { x: 0.9, y: 0.6 },
+        { x: 0, y: 0 }
+    ];
+    for (let i = 0; i < store.snapshots.length; i++) {
+        const cell = getCellAt(store, i, x, y);
+        if (!cell.exploded) {
+            values.push('translate(0 0)');
+            continue;
+        }
+        let offsetX = 0;
+        let offsetY = 0;
+        for (const triggerFrame of triggerFrames) {
+            const localIndex = i - triggerFrame;
+            if (localIndex >= 0 && localIndex < pattern.length) {
+                offsetX += pattern[localIndex].x;
+                offsetY += pattern[localIndex].y;
+            }
+        }
+        values.push(`translate(${offsetX.toFixed(2)} ${offsetY.toFixed(2)})`);
+    }
+    return values;
+};
+const buildMinePulseOpacitySeries = (store, x, y, triggerFrames) => {
+    const values = [];
+    const visibleFramesAfterTrigger = 4;
+    for (let i = 0; i < store.snapshots.length; i++) {
+        const cell = getCellAt(store, i, x, y);
+        if (!cell.exploded) {
+            values.push('0');
+            continue;
+        }
+        const visible = triggerFrames.some((triggerFrame) => i >= triggerFrame && i < triggerFrame + visibleFramesAfterTrigger);
+        values.push(visible ? '1' : '0');
+    }
+    return values;
+};
+const buildNumberOpacitySeries = (store, x, y) => {
+    var _a;
+    const values = [];
+    for (let i = 0; i < store.snapshots.length; i++) {
+        const cell = getCellAt(store, i, x, y);
+        const shouldShowNumber = (_a = cell.showNumber) !== null && _a !== void 0 ? _a : (cell.revealed && cell.adjacentMines > 0);
+        values.push(shouldShowNumber ? '1' : '0');
+    }
+    return values;
+};
+const buildNumberTextSeries = (store, x, y) => {
+    const values = [];
+    for (let i = 0; i < store.snapshots.length; i++) {
+        const cell = getCellAt(store, i, x, y);
+        values.push(String(cell.adjacentMines));
+    }
+    return values;
+};
+const buildCursorTransformSeries = (store) => {
+    const values = [];
+    for (const snapshot of store.snapshots) {
+        values.push(`${toX(snapshot.mouse.x) + 3} ${toY(snapshot.mouse.y) + 3}`);
+    }
+    return values;
+};
+const buildMonthLabels = (store) => {
+    var _a;
+    let labels = '';
+    let last = '';
+    const theme = _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__.Utils.getCurrentTheme(store);
+    for (let x = 0; x < _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH; x++) {
+        const month = (_a = store.monthLabels[x]) !== null && _a !== void 0 ? _a : '';
+        if (!month || month === last)
+            continue;
+        labels += `<text x="${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE / 2}" y="16" text-anchor="middle" font-size="10" fill="${theme.textColor}">${month}</text>`;
+        last = month;
+    }
+    return labels;
+};
+const generateAnimatedSVG = (store) => {
+    const theme = _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__.Utils.getCurrentTheme(store);
+    const width = _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH * (_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE);
+    const height = _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_HEIGHT * (_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.MINESWEEPER_HEADER_HEIGHT;
+    const totalFrames = Math.max(store.snapshots.length, 1);
+    const durationMs = Math.max((totalFrames * _core_constants__WEBPACK_IMPORTED_MODULE_1__.DELTA_TIME) / _core_constants__WEBPACK_IMPORTED_MODULE_1__.MINESWEEPER_DURATION_DIVISOR, _core_constants__WEBPACK_IMPORTED_MODULE_1__.MINESWEEPER_MIN_DURATION_MS);
+    const closedColor = theme.intensityColors[0];
+    const openColor = theme.gridBackground === '#ffffff' ? '#d7dde5' : '#2b3642';
+    const explosionColor = '#f28b82';
+    const flagColor = '#d94841';
+    const explosionTriggerFrames = getExplosionTriggerFrames(store);
+    let svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" color-interpolation="sRGB">`;
+    svg += `<rect width="100%" height="100%" fill="${theme.gridBackground}"/>`;
+    svg += buildMonthLabels(store);
+    for (let x = 0; x < _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH; x++) {
+        for (let y = 0; y < _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_HEIGHT; y++) {
+            const cell = store.board[x][y];
+            const fillSeries = buildCellFillSeries(store, x, y, closedColor, openColor, explosionColor);
+            const fillAnim = generateChangingValuesAnimation(store, fillSeries);
+            const flagAnim = generateChangingValuesAnimation(store, buildFlagOpacitySeries(store, x, y));
+            const mineAnim = generateChangingValuesAnimation(store, buildMineOpacitySeries(store, x, y));
+            const minePulseAnim = generateChangingValuesAnimation(store, buildMinePulseOpacitySeries(store, x, y, explosionTriggerFrames));
+            const mineShakeAnim = generateChangingValuesAnimation(store, buildMineShakeTransformSeries(store, x, y, explosionTriggerFrames));
+            const numberOpacityAnim = generateChangingValuesAnimation(store, buildNumberOpacitySeries(store, x, y));
+            const numberTextAnim = generateChangingValuesAnimation(store, buildNumberTextSeries(store, x, y));
+            svg += `<g id="cell-${x}-${y}">`;
+            svg += `<rect x="${toX(x)}" y="${toY(y)}" width="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE}" height="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE}" rx="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.MINESWEEPER_CELL_RADIUS}" fill="${fillSeries[0]}" stroke="${theme.wallColor}" stroke-opacity="0.18">`;
+            if (fillAnim) {
+                svg += `<animate attributeName="fill" calcMode="discrete" dur="${durationMs}ms" repeatCount="indefinite" keyTimes="${fillAnim.keyTimes}" values="${fillAnim.values}"/>`;
+            }
+            svg += `</rect>`;
+            svg += `<text x="${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE / 2}" y="${toY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.68}" text-anchor="middle" font-size="12" font-weight="700" font-family="Verdana, sans-serif" fill="${colorForNumber(cell.adjacentMines)}" opacity="0">${cell.adjacentMines}`;
+            if (numberTextAnim) {
+                svg += `<animate attributeName="textContent" calcMode="discrete" dur="${durationMs}ms" repeatCount="indefinite" keyTimes="${numberTextAnim.keyTimes}" values="${numberTextAnim.values}"/>`;
+            }
+            if (numberOpacityAnim) {
+                svg += `<animate attributeName="opacity" calcMode="discrete" dur="${durationMs}ms" repeatCount="indefinite" keyTimes="${numberOpacityAnim.keyTimes}" values="${numberOpacityAnim.values}"/>`;
+            }
+            svg += `</text>`;
+            svg += `<g opacity="0">`;
+            if (flagAnim) {
+                svg += `<animate attributeName="opacity" calcMode="discrete" dur="${durationMs}ms" repeatCount="indefinite" keyTimes="${flagAnim.keyTimes}" values="${flagAnim.values}"/>`;
+            }
+            svg += `<line x1="${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.34}" y1="${toY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.24}" x2="${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.34}" y2="${toY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.78}" stroke="${theme.wallColor}" stroke-width="1.4"/>`;
+            svg += `<polygon points="${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.36},${toY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.28} ${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.72},${toY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.43} ${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.36},${toY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.56}" fill="${flagColor}"/>`;
+            svg += `</g>`;
+            svg += `<g opacity="0" transform="translate(0 0)">`;
+            if (minePulseAnim) {
+                svg += `<animate attributeName="opacity" calcMode="discrete" dur="${durationMs}ms" repeatCount="indefinite" keyTimes="${minePulseAnim.keyTimes}" values="${minePulseAnim.values}"/>`;
+            }
+            else if (mineAnim) {
+                svg += `<animate attributeName="opacity" calcMode="discrete" dur="${durationMs}ms" repeatCount="indefinite" keyTimes="${mineAnim.keyTimes}" values="${mineAnim.values}"/>`;
+            }
+            if (mineShakeAnim) {
+                svg += `<animateTransform attributeName="transform" type="translate" calcMode="discrete" dur="${durationMs}ms" repeatCount="indefinite" keyTimes="${mineShakeAnim.keyTimes}" values="${mineShakeAnim.values.replace(/translate\(|\)/g, '')}"/>`;
+            }
+            svg += `<circle cx="${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.5}" cy="${toY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.5}" r="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.18}" fill="#202124"/>`;
+            svg += `<line x1="${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.5}" y1="${toY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.16}" x2="${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.5}" y2="${toY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.84}" stroke="#202124" stroke-width="1"/>`;
+            svg += `<line x1="${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.16}" y1="${toY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.5}" x2="${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.84}" y2="${toY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.5}" stroke="#202124" stroke-width="1"/>`;
+            svg += `<line x1="${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.24}" y1="${toY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.24}" x2="${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.76}" y2="${toY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.76}" stroke="#202124" stroke-width="1"/>`;
+            svg += `<line x1="${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.24}" y1="${toY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.76}" x2="${toX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.76}" y2="${toY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * 0.24}" stroke="#202124" stroke-width="1"/>`;
+            svg += `</g>`;
+            svg += `</g>`;
+        }
+    }
+    const cursorAnim = generateChangingValuesAnimation(store, buildCursorTransformSeries(store));
+    svg += `<g transform="translate(${toX(store.mouse.x) + 3} ${toY(store.mouse.y) + 3})">`;
+    if (cursorAnim) {
+        svg += `<animateTransform attributeName="transform" type="translate" calcMode="linear" dur="${durationMs}ms" repeatCount="indefinite" keyTimes="${cursorAnim.keyTimes}" values="${cursorAnim.values}"/>`;
+    }
+    svg += `<path d="M0 0 L8 4 L4 5.5 L6.3 10.5 L4.8 11.3 L2.5 6.2 L0.7 8 Z" fill="#f7f7f7" stroke="#111" stroke-width="0.8"/>`;
+    svg += `</g>`;
+    svg += `</svg>`;
+    return svg;
+};
+const SVG_KEY_TIMES_PRECISION = 4;
+const generateChangingValuesAnimation = (store, changingValues) => {
+    const totalFrames = store.snapshots.length;
+    if (totalFrames <= 1) {
+        return null;
+    }
+    let keyTimes = [];
+    let values = [];
+    let lastValue = null;
+    let lastIndex = null;
+    changingValues.forEach((currentValue, index) => {
+        if (currentValue !== lastValue) {
+            if (lastValue !== null && lastIndex !== null && index - 1 !== lastIndex) {
+                keyTimes.push(Number(((index - 0.1) / (totalFrames - 1)).toFixed(SVG_KEY_TIMES_PRECISION)));
+                values.push(lastValue);
+            }
+            keyTimes.push(Number((index / (totalFrames - 1)).toFixed(SVG_KEY_TIMES_PRECISION)));
+            values.push(currentValue);
+            lastValue = currentValue;
+            lastIndex = index;
+        }
+    });
+    if (keyTimes.length === 0) {
+        return null;
+    }
+    if (keyTimes[keyTimes.length - 1] !== 1) {
+        keyTimes.push(1);
+        values.push(lastValue || changingValues[changingValues.length - 1]);
+    }
+    return {
+        keyTimes: keyTimes.join(';'),
+        values: values.join(';')
+    };
+};
+const Renderer = {
+    generateAnimatedSVG
+};
+
+
+/***/ }),
+
+/***/ "./src/pacman/core/constants.ts":
 /*!**************************************!*\
   !*** ./src/pacman/core/constants.ts ***!
   \**************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2983,13 +3734,13 @@ const hasWall = (x, y, direction) => {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/pacman/core/game.ts"
+/***/ "./src/pacman/core/game.ts":
 /*!*********************************!*\
   !*** ./src/pacman/core/game.ts ***!
   \*********************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -3252,13 +4003,13 @@ const Game = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/pacman/core/store.ts"
+/***/ "./src/pacman/core/store.ts":
 /*!**********************************!*\
   !*** ./src/pacman/core/store.ts ***!
   \**********************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -3290,13 +4041,13 @@ const Store = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/pacman/index.ts"
+/***/ "./src/pacman/index.ts":
 /*!*****************************!*\
   !*** ./src/pacman/index.ts ***!
   \*****************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -3357,13 +4108,13 @@ class PacmanRenderer {
 }
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/pacman/movement/ghosts-movement.ts"
+/***/ "./src/pacman/movement/ghosts-movement.ts":
 /*!************************************************!*\
   !*** ./src/pacman/movement/ghosts-movement.ts ***!
   \************************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -3935,13 +4686,13 @@ const GhostsMovement = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/pacman/movement/movement-utils.ts"
+/***/ "./src/pacman/movement/movement-utils.ts":
 /*!***********************************************!*\
   !*** ./src/pacman/movement/movement-utils.ts ***!
   \***********************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -4008,13 +4759,13 @@ const MovementUtils = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/pacman/movement/pacman-movement.ts"
+/***/ "./src/pacman/movement/pacman-movement.ts":
 /*!************************************************!*\
   !*** ./src/pacman/movement/pacman-movement.ts ***!
   \************************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -4286,13 +5037,13 @@ const PacmanMovement = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/pacman/renderers/renderer-units.ts"
+/***/ "./src/pacman/renderers/renderer-units.ts":
 /*!************************************************!*\
   !*** ./src/pacman/renderers/renderer-units.ts ***!
   \************************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -4316,13 +5067,13 @@ const RendererUnits = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/pacman/renderers/svg.ts"
+/***/ "./src/pacman/renderers/svg.ts":
 /*!*************************************!*\
   !*** ./src/pacman/renderers/svg.ts ***!
   \*************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -4702,13 +5453,13 @@ const SVG = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/pacman/types.ts"
+/***/ "./src/pacman/types.ts":
 /*!*****************************!*\
   !*** ./src/pacman/types.ts ***!
   \*****************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -4722,13 +5473,13 @@ var PlayerStyle;
 })(PlayerStyle || (PlayerStyle = {}));
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/pacman/utils/grid.ts"
+/***/ "./src/pacman/utils/grid.ts":
 /*!**********************************!*\
   !*** ./src/pacman/utils/grid.ts ***!
   \**********************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -4854,13 +5605,13 @@ const Grid = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/puzzle-bobble/core/constants.ts"
+/***/ "./src/puzzle-bobble/core/constants.ts":
 /*!*********************************************!*\
   !*** ./src/puzzle-bobble/core/constants.ts ***!
   \*********************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -4925,13 +5676,13 @@ const PB_COLORS = [
 ];
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/puzzle-bobble/core/game.ts"
+/***/ "./src/puzzle-bobble/core/game.ts":
 /*!****************************************!*\
   !*** ./src/puzzle-bobble/core/game.ts ***!
   \****************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -5474,13 +6225,13 @@ const updateGame = (store) => {
 const PuzzleBobbleGame = { startGame, stopGame };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/puzzle-bobble/core/store.ts"
+/***/ "./src/puzzle-bobble/core/store.ts":
 /*!*****************************************!*\
   !*** ./src/puzzle-bobble/core/store.ts ***!
   \*****************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -5506,13 +6257,13 @@ const PuzzleBobbleStore = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/puzzle-bobble/index.ts"
+/***/ "./src/puzzle-bobble/index.ts":
 /*!************************************!*\
   !*** ./src/puzzle-bobble/index.ts ***!
   \************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -5565,13 +6316,13 @@ class PuzzleBobbleRenderer {
 }
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/puzzle-bobble/renderers/svg.ts"
+/***/ "./src/puzzle-bobble/renderers/svg.ts":
 /*!********************************************!*\
   !*** ./src/puzzle-bobble/renderers/svg.ts ***!
   \********************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -5845,26 +6596,27 @@ const generateAnimatedSVG = (store) => {
 const PuzzleBobblesVG = { generateAnimatedSVG };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/shared/arcade-renderer.ts"
+/***/ "./src/shared/arcade-renderer.ts":
 /*!***************************************!*\
   !*** ./src/shared/arcade-renderer.ts ***!
   \***************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   ARCADE_GAMES: () => (/* binding */ ARCADE_GAMES),
 /* harmony export */   ArcadeRenderer: () => (/* binding */ ArcadeRenderer),
 /* harmony export */   GAME_REGISTRY: () => (/* binding */ GAME_REGISTRY),
-/* harmony export */   PlayerStyle: () => (/* reexport safe */ _pacman_index__WEBPACK_IMPORTED_MODULE_3__.PlayerStyle)
+/* harmony export */   PlayerStyle: () => (/* reexport safe */ _pacman_index__WEBPACK_IMPORTED_MODULE_4__.PlayerStyle)
 /* harmony export */ });
 /* harmony import */ var _bomberman_index__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../bomberman/index */ "./src/bomberman/index.ts");
 /* harmony import */ var _breakout_index__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../breakout/index */ "./src/breakout/index.ts");
 /* harmony import */ var _galaga_index__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../galaga/index */ "./src/galaga/index.ts");
-/* harmony import */ var _pacman_index__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../pacman/index */ "./src/pacman/index.ts");
-/* harmony import */ var _puzzle_bobble_index__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../puzzle-bobble/index */ "./src/puzzle-bobble/index.ts");
+/* harmony import */ var _minesweeper_index__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../minesweeper/index */ "./src/minesweeper/index.ts");
+/* harmony import */ var _pacman_index__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../pacman/index */ "./src/pacman/index.ts");
+/* harmony import */ var _puzzle_bobble_index__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../puzzle-bobble/index */ "./src/puzzle-bobble/index.ts");
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -5880,10 +6632,11 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 
 
+
 const gameRegistry = {
     pacman: {
         label: '👻 Pac-Man',
-        factory: (conf) => new _pacman_index__WEBPACK_IMPORTED_MODULE_3__.PacmanRenderer(conf)
+        factory: (conf) => new _pacman_index__WEBPACK_IMPORTED_MODULE_4__.PacmanRenderer(conf)
     },
     breakout: {
         label: '🧱 Breakout',
@@ -5895,11 +6648,15 @@ const gameRegistry = {
     },
     'puzzle-bobble': {
         label: '🫧 Puzzle Bobble',
-        factory: (conf) => new _puzzle_bobble_index__WEBPACK_IMPORTED_MODULE_4__.PuzzleBobbleRenderer(conf)
+        factory: (conf) => new _puzzle_bobble_index__WEBPACK_IMPORTED_MODULE_5__.PuzzleBobbleRenderer(conf)
     },
     bomberman: {
         label: '💣 Bomberman',
         factory: (conf) => new _bomberman_index__WEBPACK_IMPORTED_MODULE_0__.BombermanRenderer(conf)
+    },
+    minesweeper: {
+        label: '💠 Minesweeper',
+        factory: (conf) => new _minesweeper_index__WEBPACK_IMPORTED_MODULE_3__.MinesweeperRenderer(conf)
     }
 };
 const GAME_REGISTRY = gameRegistry;
@@ -5923,13 +6680,13 @@ class ArcadeRenderer {
 }
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/shared/constants.ts"
+/***/ "./src/shared/constants.ts":
 /*!*********************************!*\
   !*** ./src/shared/constants.ts ***!
   \*********************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -5983,13 +6740,13 @@ const GAME_THEMES = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/shared/providers/github-contributions.ts"
+/***/ "./src/shared/providers/github-contributions.ts":
 /*!******************************************************!*\
   !*** ./src/shared/providers/github-contributions.ts ***!
   \******************************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -6111,13 +6868,13 @@ const fetchGithubContributionsGraphQL = (store) => __awaiter(void 0, void 0, voi
 });
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/shared/providers/gitlab-contributions.ts"
+/***/ "./src/shared/providers/gitlab-contributions.ts":
 /*!******************************************************!*\
   !*** ./src/shared/providers/gitlab-contributions.ts ***!
   \******************************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -6157,13 +6914,13 @@ const fetchGitlabContributions = (store) => __awaiter(void 0, void 0, void 0, fu
 });
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/shared/providers/providers.ts"
+/***/ "./src/shared/providers/providers.ts":
 /*!*******************************************!*\
   !*** ./src/shared/providers/providers.ts ***!
   \*******************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -6186,9 +6943,6 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 const fetchScenarioContributions = (store) => __awaiter(void 0, void 0, void 0, function* () { return (0,_scenarios__WEBPACK_IMPORTED_MODULE_2__.generateScenarioContributions)(store.config.scenario).contributions; });
 const fetchContributions = (store) => __awaiter(void 0, void 0, void 0, function* () {
-    if (store.config.contributions) {
-        return store.config.contributions;
-    }
     switch (store.config.platform) {
         case 'gitlab':
             return yield (0,_gitlab_contributions__WEBPACK_IMPORTED_MODULE_1__.fetchGitlabContributions)(store);
@@ -6209,13 +6963,13 @@ const Providers = {
 };
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/shared/providers/scenarios.ts"
+/***/ "./src/shared/providers/scenarios.ts":
 /*!*******************************************!*\
   !*** ./src/shared/providers/scenarios.ts ***!
   \*******************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -6383,13 +7137,13 @@ const toNonNegativeInteger = (value) => {
 const clampNumber = (value, min, max) => Math.max(min, Math.min(max, value));
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/shared/types.ts"
+/***/ "./src/shared/types.ts":
 /*!*****************************!*\
   !*** ./src/shared/types.ts ***!
   \*****************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -6400,13 +7154,13 @@ const PLATFORMS = ['github', 'gitlab', 'scenario'];
 const SCENARIOS = ['full', 'empty', 'random', 'checkerboard', 'gradient', 'streaks'];
 
 
-/***/ },
+/***/ }),
 
-/***/ "./src/shared/utils/utils.ts"
+/***/ "./src/shared/utils/utils.ts":
 /*!***********************************!*\
   !*** ./src/shared/utils/utils.ts ***!
   \***********************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -6525,7 +7279,7 @@ const Utils = {
 };
 
 
-/***/ }
+/***/ })
 
 /******/ });
 /************************************************************************/
@@ -6547,12 +7301,6 @@ const Utils = {
 /******/ 	};
 /******/ 
 /******/ 	// Execute the module function
-/******/ 	if (!(moduleId in __webpack_modules__)) {
-/******/ 		delete __webpack_module_cache__[moduleId];
-/******/ 		var e = new Error("Cannot find module '" + moduleId + "'");
-/******/ 		e.code = 'MODULE_NOT_FOUND';
-/******/ 		throw e;
-/******/ 	}
 /******/ 	__webpack_modules__[moduleId](module, module.exports, __webpack_require__);
 /******/ 
 /******/ 	// Return the exports of the module
@@ -6597,29 +7345,32 @@ var __webpack_exports__ = {};
   \**********************/
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   ARCADE_GAMES: () => (/* reexport safe */ _shared_arcade_renderer__WEBPACK_IMPORTED_MODULE_5__.ARCADE_GAMES),
-/* harmony export */   ArcadeRenderer: () => (/* reexport safe */ _shared_arcade_renderer__WEBPACK_IMPORTED_MODULE_5__.ArcadeRenderer),
+/* harmony export */   ARCADE_GAMES: () => (/* reexport safe */ _shared_arcade_renderer__WEBPACK_IMPORTED_MODULE_6__.ARCADE_GAMES),
+/* harmony export */   ArcadeRenderer: () => (/* reexport safe */ _shared_arcade_renderer__WEBPACK_IMPORTED_MODULE_6__.ArcadeRenderer),
 /* harmony export */   BombermanRenderer: () => (/* reexport safe */ _bomberman_index__WEBPACK_IMPORTED_MODULE_0__.BombermanRenderer),
 /* harmony export */   BreakoutRenderer: () => (/* reexport safe */ _breakout_index__WEBPACK_IMPORTED_MODULE_1__.BreakoutRenderer),
-/* harmony export */   GAME_REGISTRY: () => (/* reexport safe */ _shared_arcade_renderer__WEBPACK_IMPORTED_MODULE_5__.GAME_REGISTRY),
+/* harmony export */   GAME_REGISTRY: () => (/* reexport safe */ _shared_arcade_renderer__WEBPACK_IMPORTED_MODULE_6__.GAME_REGISTRY),
 /* harmony export */   GalagaRenderer: () => (/* reexport safe */ _galaga_index__WEBPACK_IMPORTED_MODULE_2__.GalagaRenderer),
-/* harmony export */   PLATFORMS: () => (/* reexport safe */ _shared_types__WEBPACK_IMPORTED_MODULE_7__.PLATFORMS),
-/* harmony export */   PacmanRenderer: () => (/* reexport safe */ _pacman_index__WEBPACK_IMPORTED_MODULE_3__.PacmanRenderer),
-/* harmony export */   PlayerStyle: () => (/* reexport safe */ _pacman_index__WEBPACK_IMPORTED_MODULE_3__.PlayerStyle),
-/* harmony export */   PuzzleBobbleRenderer: () => (/* reexport safe */ _puzzle_bobble_index__WEBPACK_IMPORTED_MODULE_4__.PuzzleBobbleRenderer),
-/* harmony export */   SCENARIOS: () => (/* reexport safe */ _shared_types__WEBPACK_IMPORTED_MODULE_7__.SCENARIOS),
-/* harmony export */   generateScenarioContributions: () => (/* reexport safe */ _shared_providers_scenarios__WEBPACK_IMPORTED_MODULE_6__.generateScenarioContributions),
-/* harmony export */   isScenarioName: () => (/* reexport safe */ _shared_providers_scenarios__WEBPACK_IMPORTED_MODULE_6__.isScenarioName),
-/* harmony export */   resolveScenarioName: () => (/* reexport safe */ _shared_providers_scenarios__WEBPACK_IMPORTED_MODULE_6__.resolveScenarioName)
+/* harmony export */   MinesweeperRenderer: () => (/* reexport safe */ _minesweeper_index__WEBPACK_IMPORTED_MODULE_3__.MinesweeperRenderer),
+/* harmony export */   PLATFORMS: () => (/* reexport safe */ _shared_types__WEBPACK_IMPORTED_MODULE_8__.PLATFORMS),
+/* harmony export */   PacmanRenderer: () => (/* reexport safe */ _pacman_index__WEBPACK_IMPORTED_MODULE_4__.PacmanRenderer),
+/* harmony export */   PlayerStyle: () => (/* reexport safe */ _pacman_index__WEBPACK_IMPORTED_MODULE_4__.PlayerStyle),
+/* harmony export */   PuzzleBobbleRenderer: () => (/* reexport safe */ _puzzle_bobble_index__WEBPACK_IMPORTED_MODULE_5__.PuzzleBobbleRenderer),
+/* harmony export */   SCENARIOS: () => (/* reexport safe */ _shared_types__WEBPACK_IMPORTED_MODULE_8__.SCENARIOS),
+/* harmony export */   generateScenarioContributions: () => (/* reexport safe */ _shared_providers_scenarios__WEBPACK_IMPORTED_MODULE_7__.generateScenarioContributions),
+/* harmony export */   isScenarioName: () => (/* reexport safe */ _shared_providers_scenarios__WEBPACK_IMPORTED_MODULE_7__.isScenarioName),
+/* harmony export */   resolveScenarioName: () => (/* reexport safe */ _shared_providers_scenarios__WEBPACK_IMPORTED_MODULE_7__.resolveScenarioName)
 /* harmony export */ });
 /* harmony import */ var _bomberman_index__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./bomberman/index */ "./src/bomberman/index.ts");
 /* harmony import */ var _breakout_index__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./breakout/index */ "./src/breakout/index.ts");
 /* harmony import */ var _galaga_index__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./galaga/index */ "./src/galaga/index.ts");
-/* harmony import */ var _pacman_index__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./pacman/index */ "./src/pacman/index.ts");
-/* harmony import */ var _puzzle_bobble_index__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./puzzle-bobble/index */ "./src/puzzle-bobble/index.ts");
-/* harmony import */ var _shared_arcade_renderer__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./shared/arcade-renderer */ "./src/shared/arcade-renderer.ts");
-/* harmony import */ var _shared_providers_scenarios__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./shared/providers/scenarios */ "./src/shared/providers/scenarios.ts");
-/* harmony import */ var _shared_types__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./shared/types */ "./src/shared/types.ts");
+/* harmony import */ var _minesweeper_index__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./minesweeper/index */ "./src/minesweeper/index.ts");
+/* harmony import */ var _pacman_index__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./pacman/index */ "./src/pacman/index.ts");
+/* harmony import */ var _puzzle_bobble_index__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./puzzle-bobble/index */ "./src/puzzle-bobble/index.ts");
+/* harmony import */ var _shared_arcade_renderer__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./shared/arcade-renderer */ "./src/shared/arcade-renderer.ts");
+/* harmony import */ var _shared_providers_scenarios__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./shared/providers/scenarios */ "./src/shared/providers/scenarios.ts");
+/* harmony import */ var _shared_types__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./shared/types */ "./src/shared/types.ts");
+
 
 
 
@@ -6631,20 +7382,21 @@ __webpack_require__.r(__webpack_exports__);
 
 })();
 
-const __webpack_exports__ARCADE_GAMES = __webpack_exports__.ARCADE_GAMES;
-const __webpack_exports__ArcadeRenderer = __webpack_exports__.ArcadeRenderer;
-const __webpack_exports__BombermanRenderer = __webpack_exports__.BombermanRenderer;
-const __webpack_exports__BreakoutRenderer = __webpack_exports__.BreakoutRenderer;
-const __webpack_exports__GAME_REGISTRY = __webpack_exports__.GAME_REGISTRY;
-const __webpack_exports__GalagaRenderer = __webpack_exports__.GalagaRenderer;
-const __webpack_exports__PLATFORMS = __webpack_exports__.PLATFORMS;
-const __webpack_exports__PacmanRenderer = __webpack_exports__.PacmanRenderer;
-const __webpack_exports__PlayerStyle = __webpack_exports__.PlayerStyle;
-const __webpack_exports__PuzzleBobbleRenderer = __webpack_exports__.PuzzleBobbleRenderer;
-const __webpack_exports__SCENARIOS = __webpack_exports__.SCENARIOS;
-const __webpack_exports__generateScenarioContributions = __webpack_exports__.generateScenarioContributions;
-const __webpack_exports__isScenarioName = __webpack_exports__.isScenarioName;
-const __webpack_exports__resolveScenarioName = __webpack_exports__.resolveScenarioName;
-export { __webpack_exports__ARCADE_GAMES as ARCADE_GAMES, __webpack_exports__ArcadeRenderer as ArcadeRenderer, __webpack_exports__BombermanRenderer as BombermanRenderer, __webpack_exports__BreakoutRenderer as BreakoutRenderer, __webpack_exports__GAME_REGISTRY as GAME_REGISTRY, __webpack_exports__GalagaRenderer as GalagaRenderer, __webpack_exports__PLATFORMS as PLATFORMS, __webpack_exports__PacmanRenderer as PacmanRenderer, __webpack_exports__PlayerStyle as PlayerStyle, __webpack_exports__PuzzleBobbleRenderer as PuzzleBobbleRenderer, __webpack_exports__SCENARIOS as SCENARIOS, __webpack_exports__generateScenarioContributions as generateScenarioContributions, __webpack_exports__isScenarioName as isScenarioName, __webpack_exports__resolveScenarioName as resolveScenarioName };
+var __webpack_exports__ARCADE_GAMES = __webpack_exports__.ARCADE_GAMES;
+var __webpack_exports__ArcadeRenderer = __webpack_exports__.ArcadeRenderer;
+var __webpack_exports__BombermanRenderer = __webpack_exports__.BombermanRenderer;
+var __webpack_exports__BreakoutRenderer = __webpack_exports__.BreakoutRenderer;
+var __webpack_exports__GAME_REGISTRY = __webpack_exports__.GAME_REGISTRY;
+var __webpack_exports__GalagaRenderer = __webpack_exports__.GalagaRenderer;
+var __webpack_exports__MinesweeperRenderer = __webpack_exports__.MinesweeperRenderer;
+var __webpack_exports__PLATFORMS = __webpack_exports__.PLATFORMS;
+var __webpack_exports__PacmanRenderer = __webpack_exports__.PacmanRenderer;
+var __webpack_exports__PlayerStyle = __webpack_exports__.PlayerStyle;
+var __webpack_exports__PuzzleBobbleRenderer = __webpack_exports__.PuzzleBobbleRenderer;
+var __webpack_exports__SCENARIOS = __webpack_exports__.SCENARIOS;
+var __webpack_exports__generateScenarioContributions = __webpack_exports__.generateScenarioContributions;
+var __webpack_exports__isScenarioName = __webpack_exports__.isScenarioName;
+var __webpack_exports__resolveScenarioName = __webpack_exports__.resolveScenarioName;
+export { __webpack_exports__ARCADE_GAMES as ARCADE_GAMES, __webpack_exports__ArcadeRenderer as ArcadeRenderer, __webpack_exports__BombermanRenderer as BombermanRenderer, __webpack_exports__BreakoutRenderer as BreakoutRenderer, __webpack_exports__GAME_REGISTRY as GAME_REGISTRY, __webpack_exports__GalagaRenderer as GalagaRenderer, __webpack_exports__MinesweeperRenderer as MinesweeperRenderer, __webpack_exports__PLATFORMS as PLATFORMS, __webpack_exports__PacmanRenderer as PacmanRenderer, __webpack_exports__PlayerStyle as PlayerStyle, __webpack_exports__PuzzleBobbleRenderer as PuzzleBobbleRenderer, __webpack_exports__SCENARIOS as SCENARIOS, __webpack_exports__generateScenarioContributions as generateScenarioContributions, __webpack_exports__isScenarioName as isScenarioName, __webpack_exports__resolveScenarioName as resolveScenarioName };
 
 //# sourceMappingURL=pacman-contribution-graph.js.map
