@@ -1,13 +1,5 @@
 import { BombModel, Direction, PlayerModel, Position, BombermanStore } from '../types';
-import {
-	DIRECTIONS,
-	getAdjacentPositions,
-	isContributionCell,
-	isPassableCell,
-	manhattan,
-	positionKey,
-	samePosition
-} from './board';
+import { DIRECTIONS, getAdjacentPositions, isContributionCell, isPassableCell, manhattan, positionKey, samePosition } from './board';
 import {
 	canEscapeAfterPlantingBomb,
 	canEscapeAfterPlantingBombAt,
@@ -212,7 +204,10 @@ class BombSpotPlanner {
 				)[0];
 			if (!bestContribution || bestContribution.pathDistance > 1) continue;
 
-			const expectedItemDropChance = contributions.reduce((sum, contribution) => sum + getItemDropChance(this.store, contribution), 0);
+			const expectedItemDropChance = contributions.reduce(
+				(sum, contribution) => sum + getItemDropChance(this.store, contribution),
+				0
+			);
 			const score =
 				origin.distance * AI_SCORE.ORIGIN_DISTANCE_WEIGHT +
 				bestContribution.pathDistance * PATH_BLAST_COST +

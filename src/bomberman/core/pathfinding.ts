@@ -3,15 +3,7 @@ import { BOMB_FUSE_FRAMES } from './constants';
 import { Bomb } from '../entities/bomb';
 import { Explosion } from '../entities/explosion';
 import { Player } from '../entities/player';
-import {
-	getAdjacentPositions,
-	isContributionCell,
-	isEmptyCell,
-	isPassableCell,
-	manhattan,
-	positionKey,
-	samePosition
-} from './board';
+import { getAdjacentPositions, isContributionCell, isEmptyCell, isPassableCell, manhattan, positionKey, samePosition } from './board';
 import { AI, PATH_BLAST_COST } from './constants';
 
 export type RouteStep = { firstStep: Position | null; distance: number };

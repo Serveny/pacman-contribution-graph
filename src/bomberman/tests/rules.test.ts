@@ -689,10 +689,30 @@ describe('Bomberman SVG renderer', () => {
 		store.initialColors = store.grid.map((col) => col.map((cell) => cell.color));
 		store.monthLabels = Array.from({ length: GRID_WIDTH }, () => '');
 		store.gameHistory = [
-			{ players: [], bombs: [{ id: 0, ownerId: 1, x: 0, y: 0, timer: 4, exploded: false, blastRange: 1 }], explosions: [], items: [] },
-			{ players: [], bombs: [{ id: 0, ownerId: 1, x: 1, y: 0, timer: 3, exploded: false, blastRange: 1 }], explosions: [], items: [] },
-			{ players: [], bombs: [{ id: 0, ownerId: 1, x: 2, y: 0, timer: 2, exploded: false, blastRange: 1 }], explosions: [], items: [] },
-			{ players: [], bombs: [{ id: 1, ownerId: 1, x: 0, y: 0, timer: 4, exploded: false, blastRange: 1 }], explosions: [], items: [] },
+			{
+				players: [],
+				bombs: [{ id: 0, ownerId: 1, x: 0, y: 0, timer: 4, exploded: false, blastRange: 1 }],
+				explosions: [],
+				items: []
+			},
+			{
+				players: [],
+				bombs: [{ id: 0, ownerId: 1, x: 1, y: 0, timer: 3, exploded: false, blastRange: 1 }],
+				explosions: [],
+				items: []
+			},
+			{
+				players: [],
+				bombs: [{ id: 0, ownerId: 1, x: 2, y: 0, timer: 2, exploded: false, blastRange: 1 }],
+				explosions: [],
+				items: []
+			},
+			{
+				players: [],
+				bombs: [{ id: 1, ownerId: 1, x: 0, y: 0, timer: 4, exploded: false, blastRange: 1 }],
+				explosions: [],
+				items: []
+			},
 			{ players: [], bombs: [{ id: 1, ownerId: 1, x: 0, y: 0, timer: 3, exploded: false, blastRange: 1 }], explosions: [], items: [] }
 		];
 
@@ -711,10 +731,30 @@ describe('Bomberman SVG renderer', () => {
 		store.initialColors = store.grid.map((col) => col.map((cell) => cell.color));
 		store.monthLabels = Array.from({ length: GRID_WIDTH }, () => '');
 		store.gameHistory = [
-			{ players: [], bombs: [{ id: 0, ownerId: 1, x: 0, y: 0, timer: 5, exploded: false, blastRange: 1 }], explosions: [], items: [] },
-			{ players: [], bombs: [{ id: 0, ownerId: 1, x: 0, y: 0, timer: 4, exploded: false, blastRange: 1 }], explosions: [], items: [] },
-			{ players: [], bombs: [{ id: 0, ownerId: 1, x: 1, y: 0, timer: 3, exploded: false, blastRange: 1 }], explosions: [], items: [] },
-			{ players: [], bombs: [{ id: 0, ownerId: 1, x: 1, y: 0, timer: 2, exploded: false, blastRange: 1 }], explosions: [], items: [] },
+			{
+				players: [],
+				bombs: [{ id: 0, ownerId: 1, x: 0, y: 0, timer: 5, exploded: false, blastRange: 1 }],
+				explosions: [],
+				items: []
+			},
+			{
+				players: [],
+				bombs: [{ id: 0, ownerId: 1, x: 0, y: 0, timer: 4, exploded: false, blastRange: 1 }],
+				explosions: [],
+				items: []
+			},
+			{
+				players: [],
+				bombs: [{ id: 0, ownerId: 1, x: 1, y: 0, timer: 3, exploded: false, blastRange: 1 }],
+				explosions: [],
+				items: []
+			},
+			{
+				players: [],
+				bombs: [{ id: 0, ownerId: 1, x: 1, y: 0, timer: 2, exploded: false, blastRange: 1 }],
+				explosions: [],
+				items: []
+			},
 			{ players: [], bombs: [{ id: 0, ownerId: 1, x: 2, y: 0, timer: 1, exploded: false, blastRange: 1 }], explosions: [], items: [] }
 		];
 
