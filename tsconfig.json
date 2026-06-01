@@ -3,10 +3,13 @@
 		"emitDeclarationOnly": false,
 		"target": "ES6",
 		"module": "ESNext",
+		"moduleResolution": "node",
 		"strict": true,
 		"esModuleInterop": true,
 		"sourceMap": true,
-		"lib": ["ES2019", "DOM"]
+		"lib": ["ES2019", "DOM"],
+		"types": []
 	},
-	"include": ["src"]
+	"include": ["src"],
+	"exclude": ["src/**/*.test.ts", "src/**/tests/**/*.ts"]
 }

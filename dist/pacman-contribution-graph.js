@@ -1,154 +1,509 @@
 /******/ var __webpack_modules__ = ({
 
-/***/ "./src/bomberman/core/ai.ts":
+/***/ "./src/bomberman/core/ai.ts"
 /*!**********************************!*\
   !*** ./src/bomberman/core/ai.ts ***!
   \**********************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   movePlayer: () => (/* binding */ movePlayer),
-/* harmony export */   shouldPlaceBomb: () => (/* binding */ shouldPlaceBomb)
+/* harmony export */   AiController: () => (/* binding */ AiController)
 /* harmony export */ });
-/* harmony import */ var _rules__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./rules */ "./src/bomberman/core/rules.ts");
+/* harmony import */ var _board__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./board */ "./src/bomberman/core/board.ts");
 /* harmony import */ var _pathfinding__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./pathfinding */ "./src/bomberman/core/pathfinding.ts");
 /* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./constants */ "./src/bomberman/core/constants.ts");
+/* harmony import */ var _entities_bomb__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../entities/bomb */ "./src/bomberman/entities/bomb.ts");
+/* harmony import */ var _entities_item__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../entities/item */ "./src/bomberman/entities/item.ts");
+/* harmony import */ var _entities_player__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../entities/player */ "./src/bomberman/entities/player.ts");
 
 
 
-const findBestBombSpotTowardOpponent = (store, player, opponent) => {
-    const currentRoute = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.estimateFastestRoute)(store, player, opponent);
-    const candidates = [];
-    const origins = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.findReachableBombOrigins)(store, player);
-    for (const origin of origins) {
-        if (!(0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.canEscapeAfterPlantingBombAt)(store, player, origin.position))
-            continue;
-        const contributions = (0,_rules__WEBPACK_IMPORTED_MODULE_0__.getBlastCells)(origin.position).filter((position) => (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isContributionCell)(store, position));
-        if (contributions.length === 0)
-            continue;
-        const openedCells = new Set(contributions.map(_rules__WEBPACK_IMPORTED_MODULE_0__.positionKey));
-        const routeAfterBomb = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.estimateFastestRoute)(store, origin.position, opponent, openedCells);
-        if (!routeAfterBomb)
-            continue;
-        const bestContribution = contributions.sort((a, b) => (0,_rules__WEBPACK_IMPORTED_MODULE_0__.manhattan)(a, opponent) - (0,_rules__WEBPACK_IMPORTED_MODULE_0__.manhattan)(b, opponent))[0];
-        const routeImprovement = currentRoute ? currentRoute.cost - routeAfterBomb.cost : _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_PATH_BLAST_COST;
-        if (routeImprovement <= 0)
-            continue;
-        const backtrackPenalty = origin.firstStep && (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.isBacktrackingStep)(store, player, origin.firstStep) ? _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_AI_SCORE.BACKTRACK_PENALTY : 0;
-        const score = routeAfterBomb.blastedCells * _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_PATH_BLAST_COST * _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_AI_SCORE.BLASTED_CELL_WEIGHT +
-            origin.distance * _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_AI_SCORE.ORIGIN_DISTANCE_WEIGHT +
+
+
+
+class WeightedBombSpotScorer {
+    score({ origin, routeAfterBomb, opponent, contributions, routeImprovement, isBacktrack }) {
+        const backtrackPenalty = isBacktrack ? _constants__WEBPACK_IMPORTED_MODULE_2__.AI_SCORE.BACKTRACK_PENALTY : 0;
+        return (routeAfterBomb.blastedCells * _constants__WEBPACK_IMPORTED_MODULE_2__.PATH_BLAST_COST * _constants__WEBPACK_IMPORTED_MODULE_2__.AI_SCORE.BLASTED_CELL_WEIGHT +
+            origin.distance * _constants__WEBPACK_IMPORTED_MODULE_2__.AI_SCORE.ORIGIN_DISTANCE_WEIGHT +
             routeAfterBomb.distance +
-            (0,_rules__WEBPACK_IMPORTED_MODULE_0__.manhattan)(origin.position, opponent) * _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_AI_SCORE.OPPONENT_DISTANCE_WEIGHT +
+            (0,_board__WEBPACK_IMPORTED_MODULE_0__.manhattan)(origin.position, opponent) * _constants__WEBPACK_IMPORTED_MODULE_2__.AI_SCORE.OPPONENT_DISTANCE_WEIGHT +
             backtrackPenalty -
-            contributions.length * _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_AI_SCORE.CONTRIBUTION_COUNT_REWARD -
-            routeImprovement * _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_AI_SCORE.ROUTE_IMPROVEMENT_REWARD;
-        candidates.push({
-            position: origin.position,
-            firstStep: origin.firstStep,
-            contribution: bestContribution,
-            score
+            contributions.length * _constants__WEBPACK_IMPORTED_MODULE_2__.AI_SCORE.CONTRIBUTION_COUNT_REWARD -
+            routeImprovement * _constants__WEBPACK_IMPORTED_MODULE_2__.AI_SCORE.ROUTE_IMPROVEMENT_REWARD);
+    }
+}
+class EscapeMovementStrategy {
+    choose({ store, player }) {
+        const mustEscape = Boolean(_entities_bomb__WEBPACK_IMPORTED_MODULE_3__.Bomb.findAt(store, player)) || player.isOwnExplosionDangerCell(store, player);
+        if (!mustEscape)
+            return null;
+        return { handled: true, step: (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.findEscapeStep)(store, player) };
+    }
+}
+class ItemMovementStrategy {
+    choose({ store, player, opponent }) {
+        var _a;
+        if (player.canKickBombs)
+            return null;
+        if (!opponent)
+            return { handled: true, step: null };
+        const previousPosition = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.getPreviousPlayerPosition)(store, player.id);
+        const itemRoute = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.findPathToTarget)(store, player, (position) => _entities_item__WEBPACK_IMPORTED_MODULE_4__.Item.hasVisibleAt(store, position), {
+            avoidFirstStep: previousPosition,
+            attackSide: player.attackSide,
+            routePreference: player.routePreference
         });
+        const step = toSafeStep(store, player, (_a = itemRoute === null || itemRoute === void 0 ? void 0 : itemRoute.firstStep) !== null && _a !== void 0 ? _a : null);
+        return step ? { handled: true, step } : null;
     }
-    if (candidates.length === 0)
+}
+class ChaseOpponentMovementStrategy {
+    choose({ store, player, opponent }) {
+        var _a;
+        if (!opponent)
+            return { handled: true, step: null };
+        const previousPosition = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.getPreviousPlayerPosition)(store, player.id);
+        const directRoute = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.findPathToTarget)(store, player, (position) => (0,_board__WEBPACK_IMPORTED_MODULE_0__.samePosition)(position, opponent), {
+            avoidFirstStep: previousPosition,
+            attackSide: player.attackSide,
+            routePreference: player.routePreference,
+            target: opponent
+        });
+        const step = toSafeStep(store, player, (_a = directRoute === null || directRoute === void 0 ? void 0 : directRoute.firstStep) !== null && _a !== void 0 ? _a : null);
+        return step ? { handled: true, step } : null;
+    }
+}
+class RouteItemHuntMovementStrategy {
+    choose({ store, player, opponent, bombSpotPlanner }) {
+        var _a, _b;
+        if (!opponent || !player.canPlaceBomb(store))
+            return null;
+        const next = (_b = (_a = bombSpotPlanner.findBestItemHuntToward(opponent)) === null || _a === void 0 ? void 0 : _a.firstStep) !== null && _b !== void 0 ? _b : null;
+        return next ? { handled: true, step: toSafeStep(store, player, next) } : null;
+    }
+}
+class BombKickMovementStrategy {
+    choose({ store, player, opponent }) {
+        if (!player.canKickBombs || !opponent)
+            return null;
+        const kickStep = findKickStepToward(store, player, opponent);
+        return kickStep ? { handled: true, step: kickStep } : null;
+    }
+}
+class BombSpotMovementStrategy {
+    choose({ store, player, opponent, bombSpotPlanner }) {
+        var _a, _b;
+        if (!opponent || !player.canPlaceBomb(store))
+            return { handled: true, step: null };
+        const next = (_b = (_a = bombSpotPlanner.findBestToward(opponent)) === null || _a === void 0 ? void 0 : _a.firstStep) !== null && _b !== void 0 ? _b : null;
+        return { handled: true, step: toSafeStep(store, player, next) };
+    }
+}
+class BombSpotPlanner {
+    constructor(store, player, bombSpotScorer = new WeightedBombSpotScorer()) {
+        this.store = store;
+        this.player = player;
+        this.bombSpotScorer = bombSpotScorer;
+    }
+    findBestToward(opponent) {
+        const currentRoute = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.estimateFastestRoute)(this.store, this.player, opponent);
+        const origins = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.findReachableBombOrigins)(this.store, this.player);
+        const candidates = [];
+        for (const origin of origins) {
+            if (!(0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.canEscapeAfterPlantingBombAt)(this.store, this.player, origin.position))
+                continue;
+            const previewBomb = new _entities_bomb__WEBPACK_IMPORTED_MODULE_3__.Bomb(-1, this.player.id, origin.position.x, origin.position.y, this.player.blastRange);
+            if (previewBomb.wouldHitVisibleItem(this.store))
+                continue;
+            const contributions = previewBomb.getBlastCells(this.store).filter((p) => (0,_board__WEBPACK_IMPORTED_MODULE_0__.isContributionCell)(this.store, p));
+            if (contributions.length === 0)
+                continue;
+            const openedCells = new Set(contributions.map(_board__WEBPACK_IMPORTED_MODULE_0__.positionKey));
+            const routeAfterBomb = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.estimateFastestRoute)(this.store, origin.position, opponent, openedCells);
+            if (!routeAfterBomb)
+                continue;
+            const routeImprovement = currentRoute ? currentRoute.cost - routeAfterBomb.cost : _constants__WEBPACK_IMPORTED_MODULE_2__.PATH_BLAST_COST;
+            if (routeImprovement <= 0)
+                continue;
+            const bestContribution = contributions.sort((a, b) => (0,_board__WEBPACK_IMPORTED_MODULE_0__.manhattan)(a, opponent) - (0,_board__WEBPACK_IMPORTED_MODULE_0__.manhattan)(b, opponent))[0];
+            const score = this.bombSpotScorer.score({
+                origin,
+                routeAfterBomb,
+                opponent,
+                contributions,
+                routeImprovement,
+                isBacktrack: Boolean(origin.firstStep && (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.isBacktrackingStep)(this.store, this.player, origin.firstStep))
+            });
+            candidates.push({ position: origin.position, firstStep: origin.firstStep, contribution: bestContribution, score });
+        }
+        if (candidates.length === 0)
+            return null;
+        return candidates.sort((a, b) => a.score - b.score || a.position.x - b.position.x || a.position.y - b.position.y)[0];
+    }
+    findBestItemHuntToward(opponent) {
+        const directPath = findDirectPath(this.store, this.player, opponent);
+        if (!directPath)
+            return null;
+        const origins = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.findReachableBombOrigins)(this.store, this.player);
+        const candidates = [];
+        for (const origin of origins) {
+            if (!(0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.canEscapeAfterPlantingBombAt)(this.store, this.player, origin.position))
+                continue;
+            const previewBomb = new _entities_bomb__WEBPACK_IMPORTED_MODULE_3__.Bomb(-1, this.player.id, origin.position.x, origin.position.y, this.player.blastRange);
+            if (previewBomb.wouldHitVisibleItem(this.store))
+                continue;
+            const contributions = previewBomb.getBlastCells(this.store).filter((position) => (0,_board__WEBPACK_IMPORTED_MODULE_0__.isContributionCell)(this.store, position));
+            if (contributions.length === 0)
+                continue;
+            const bestContribution = contributions
+                .map((contribution) => ({
+                contribution,
+                itemDropChance: getItemDropChance(this.store, contribution),
+                pathDistance: minDistanceToPath(contribution, directPath)
+            }))
+                .sort((a, b) => a.pathDistance - b.pathDistance ||
+                b.itemDropChance - a.itemDropChance ||
+                (0,_board__WEBPACK_IMPORTED_MODULE_0__.manhattan)(a.contribution, opponent) - (0,_board__WEBPACK_IMPORTED_MODULE_0__.manhattan)(b.contribution, opponent) ||
+                (0,_board__WEBPACK_IMPORTED_MODULE_0__.manhattan)(a.contribution, this.player) - (0,_board__WEBPACK_IMPORTED_MODULE_0__.manhattan)(b.contribution, this.player))[0];
+            if (!bestContribution || bestContribution.pathDistance > 1)
+                continue;
+            const expectedItemDropChance = contributions.reduce((sum, contribution) => sum + getItemDropChance(this.store, contribution), 0);
+            const score = origin.distance * _constants__WEBPACK_IMPORTED_MODULE_2__.AI_SCORE.ORIGIN_DISTANCE_WEIGHT +
+                bestContribution.pathDistance * _constants__WEBPACK_IMPORTED_MODULE_2__.PATH_BLAST_COST +
+                (0,_board__WEBPACK_IMPORTED_MODULE_0__.manhattan)(bestContribution.contribution, opponent) * _constants__WEBPACK_IMPORTED_MODULE_2__.AI_SCORE.OPPONENT_DISTANCE_WEIGHT -
+                contributions.length * _constants__WEBPACK_IMPORTED_MODULE_2__.AI_SCORE.CONTRIBUTION_COUNT_REWARD -
+                expectedItemDropChance * _constants__WEBPACK_IMPORTED_MODULE_2__.AI_SCORE.ITEM_DROP_CHANCE_REWARD;
+            candidates.push({
+                position: origin.position,
+                firstStep: origin.firstStep,
+                contribution: bestContribution.contribution,
+                score
+            });
+        }
+        if (candidates.length === 0)
+            return null;
+        return candidates.sort((a, b) => a.score - b.score || a.position.x - b.position.x || a.position.y - b.position.y)[0];
+    }
+}
+const toSafeStep = (store, player, next) => {
+    if (!next || !(0,_board__WEBPACK_IMPORTED_MODULE_0__.isPassableCell)(store, next) || player.isOwnExplosionDangerCell(store, next))
         return null;
-    candidates.sort((a, b) => a.score - b.score || a.position.x - b.position.x || a.position.y - b.position.y);
-    return candidates[0];
+    return next;
 };
-const shouldPlaceBomb = (store, player) => {
-    if (!(0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.canEscapeAfterPlantingBomb)(store, player))
-        return false;
-    if ((0,_rules__WEBPACK_IMPORTED_MODULE_0__.bombWouldHitOpponent)(store, player))
-        return true;
-    const opponent = store.players.find((candidate) => candidate.id !== player.id && candidate.alive);
-    if (!opponent)
-        return false;
-    const bombSpot = findBestBombSpotTowardOpponent(store, player, opponent);
-    return Boolean(bombSpot && (0,_rules__WEBPACK_IMPORTED_MODULE_0__.samePosition)(bombSpot.position, player) && (0,_rules__WEBPACK_IMPORTED_MODULE_0__.bombWouldHitTarget)(store, player));
-};
-const movePlayer = (store, player) => {
-    const escapeStep = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.findEscapeStep)(store, player);
-    const mustEscape = Boolean((0,_rules__WEBPACK_IMPORTED_MODULE_0__.bombAt)(store, player)) || (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isActiveExplosionCell)(store, player, player.id) || (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isInOwnFutureBlast)(store, player, player);
-    if (mustEscape) {
-        if (escapeStep)
-            movePlayerTo(player, escapeStep);
-        return;
+const findDirectPath = (store, start, target) => {
+    const startKey = (0,_board__WEBPACK_IMPORTED_MODULE_0__.positionKey)(start);
+    const visited = new Set([startKey]);
+    const previousByKey = new Map([[startKey, null]]);
+    const positionsByKey = new Map([[startKey, { x: start.x, y: start.y }]]);
+    const queue = [{ x: start.x, y: start.y }];
+    let queueHead = 0;
+    while (queueHead < queue.length) {
+        const current = queue[queueHead++];
+        if (current !== start && (0,_board__WEBPACK_IMPORTED_MODULE_0__.samePosition)(current, target))
+            return reconstructPath((0,_board__WEBPACK_IMPORTED_MODULE_0__.positionKey)(current), previousByKey, positionsByKey);
+        const nextPositions = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.sortPathOptions)((0,_board__WEBPACK_IMPORTED_MODULE_0__.getAdjacentPositions)(current), {
+            attackSide: start.attackSide,
+            origin: current,
+            routePreference: start.routePreference,
+            target
+        });
+        for (const next of nextPositions) {
+            const key = (0,_board__WEBPACK_IMPORTED_MODULE_0__.positionKey)(next);
+            if (visited.has(key) || !(0,_board__WEBPACK_IMPORTED_MODULE_0__.isPassableCell)(store, next))
+                continue;
+            visited.add(key);
+            previousByKey.set(key, (0,_board__WEBPACK_IMPORTED_MODULE_0__.positionKey)(current));
+            positionsByKey.set(key, { x: next.x, y: next.y });
+            queue.push({ x: next.x, y: next.y });
+        }
     }
-    const opponent = store.players.find((candidate) => candidate.id !== player.id && candidate.alive);
-    if (!opponent)
-        return;
-    const previousPosition = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.getPreviousPlayerPosition)(store, player.id);
-    const directRoute = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.findPathToTarget)(store, player, (position) => (0,_rules__WEBPACK_IMPORTED_MODULE_0__.samePosition)(position, opponent), {
-        avoidFirstStep: previousPosition,
-        target: opponent
+    return null;
+};
+const reconstructPath = (endKey, previousByKey, positionsByKey) => {
+    var _a;
+    const path = [];
+    let key = endKey;
+    while (key) {
+        const position = positionsByKey.get(key);
+        if (position)
+            path.push(position);
+        key = (_a = previousByKey.get(key)) !== null && _a !== void 0 ? _a : null;
+    }
+    return path.reverse();
+};
+const minDistanceToPath = (position, path) => path.reduce((best, pathPosition) => Math.min(best, (0,_board__WEBPACK_IMPORTED_MODULE_0__.manhattan)(position, pathPosition)), Number.POSITIVE_INFINITY);
+const getItemDropChance = (store, position) => {
+    var _a;
+    const cell = (_a = store.grid[position.x]) === null || _a === void 0 ? void 0 : _a[position.y];
+    return cell ? _constants__WEBPACK_IMPORTED_MODULE_2__.ITEM_DROP_CHANCE_BY_LEVEL[cell.level] : 0;
+};
+const findKickStepToward = (store, player, target) => {
+    var _a;
+    const nextPositions = (0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.sortPathOptions)((0,_board__WEBPACK_IMPORTED_MODULE_0__.getAdjacentPositions)(player), {
+        attackSide: player.attackSide,
+        origin: player,
+        routePreference: player.routePreference,
+        target
     });
-    const safeDirectStep = (directRoute === null || directRoute === void 0 ? void 0 : directRoute.firstStep) &&
-        (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isPassableCell)(store, directRoute.firstStep) &&
-        !(0,_rules__WEBPACK_IMPORTED_MODULE_0__.isActiveExplosionCell)(store, directRoute.firstStep, player.id) &&
-        !(0,_rules__WEBPACK_IMPORTED_MODULE_0__.isInOwnFutureBlast)(store, player, directRoute.firstStep)
-        ? directRoute.firstStep
-        : null;
-    if (safeDirectStep) {
-        movePlayerTo(player, safeDirectStep);
-        return;
+    for (const next of nextPositions) {
+        const direction = (_a = _board__WEBPACK_IMPORTED_MODULE_0__.DIRECTIONS.find((delta) => player.x + delta.x === next.x && player.y + delta.y === next.y)) === null || _a === void 0 ? void 0 : _a.direction;
+        const bomb = _entities_bomb__WEBPACK_IMPORTED_MODULE_3__.Bomb.findAt(store, next);
+        if (!direction || !bomb)
+            continue;
+        const kickedBomb = previewKickedBomb(store, bomb, direction);
+        if (!kickedBomb || kickedBomb.threatens(store, next))
+            continue;
+        if (!canPlayerEscapeAfterKick(store, player, bomb, direction, next))
+            continue;
+        return { x: next.x, y: next.y };
     }
-    const hasOwnActiveBomb = store.bombs.some((bomb) => !bomb.exploded && bomb.ownerId === player.id);
-    if (hasOwnActiveBomb)
-        return;
-    const bombSpot = findBestBombSpotTowardOpponent(store, player, opponent);
-    const next = bombSpot === null || bombSpot === void 0 ? void 0 : bombSpot.firstStep;
-    if (!next || !(0,_rules__WEBPACK_IMPORTED_MODULE_0__.isPassableCell)(store, next) || (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isActiveExplosionCell)(store, next, player.id) || (0,_rules__WEBPACK_IMPORTED_MODULE_0__.isInOwnFutureBlast)(store, player, next)) {
-        return;
+    return null;
+};
+const previewKickedBomb = (store, bomb, direction) => {
+    const landing = bomb.getKickLandingPosition(store, direction);
+    if (!landing)
+        return null;
+    return new _entities_bomb__WEBPACK_IMPORTED_MODULE_3__.Bomb(bomb.id, bomb.ownerId, landing.x, landing.y, bomb.blastRange, bomb.timer, bomb.exploded, direction, bomb.kickMoveCooldown);
+};
+const previewImmediateKickedBomb = (store, bomb, direction) => {
+    if (!bomb.canKick(store, direction))
+        return null;
+    const delta = _board__WEBPACK_IMPORTED_MODULE_0__.DIRECTIONS.find((candidate) => candidate.direction === direction);
+    if (!delta)
+        return null;
+    return new _entities_bomb__WEBPACK_IMPORTED_MODULE_3__.Bomb(bomb.id, bomb.ownerId, bomb.x + delta.x, bomb.y + delta.y, bomb.blastRange, bomb.timer, bomb.exploded, direction, bomb.kickMoveCooldown);
+};
+const canPlayerEscapeAfterKick = (store, player, bomb, direction, playerPositionAfterKick) => {
+    const immediateBomb = previewImmediateKickedBomb(store, bomb, direction);
+    const landingBomb = previewKickedBomb(store, bomb, direction);
+    if (!immediateBomb || !landingBomb)
+        return false;
+    return (canPlayerEscapeWithVirtualBomb(store, player, bomb, immediateBomb, playerPositionAfterKick) &&
+        canPlayerEscapeWithVirtualBomb(store, player, bomb, landingBomb, playerPositionAfterKick));
+};
+const canPlayerEscapeWithVirtualBomb = (store, player, sourceBomb, virtualBomb, playerPosition) => {
+    const virtualPlayer = _entities_player__WEBPACK_IMPORTED_MODULE_5__.Player.fromState(Object.assign(Object.assign({}, player), { x: playerPosition.x, y: playerPosition.y }));
+    const sourceIndex = store.bombs.indexOf(sourceBomb);
+    if (sourceIndex >= 0) {
+        store.bombs[sourceIndex] = virtualBomb;
     }
-    movePlayerTo(player, next);
+    else {
+        store.bombs.push(virtualBomb);
+    }
+    try {
+        return virtualPlayer.isSafeStandingCell(store, playerPosition) || Boolean((0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.findEscapeStep)(store, virtualPlayer));
+    }
+    finally {
+        if (sourceIndex >= 0) {
+            store.bombs[sourceIndex] = sourceBomb;
+        }
+        else {
+            store.bombs.pop();
+        }
+    }
 };
-const movePlayerTo = (player, next) => {
-    var _a, _b;
-    const direction = (_b = (_a = _rules__WEBPACK_IMPORTED_MODULE_0__.DIRECTIONS.find((delta) => player.x + delta.x === next.x && player.y + delta.y === next.y)) === null || _a === void 0 ? void 0 : _a.direction) !== null && _b !== void 0 ? _b : next.direction;
-    if (direction)
-        player.direction = direction;
-    player.x = next.x;
-    player.y = next.y;
-};
+class AiController {
+    constructor(store, player, bombSpotScorer = new WeightedBombSpotScorer()) {
+        this.store = store;
+        this.player = player;
+        this.bombSpotPlanner = new BombSpotPlanner(store, player, bombSpotScorer);
+        this.movementStrategies = [
+            new BombKickMovementStrategy(),
+            new EscapeMovementStrategy(),
+            new ItemMovementStrategy(),
+            new RouteItemHuntMovementStrategy(),
+            new ChaseOpponentMovementStrategy(),
+            new BombSpotMovementStrategy()
+        ];
+    }
+    shouldPlaceBomb() {
+        const opponent = this.getAliveOpponent();
+        if (!(0,_pathfinding__WEBPACK_IMPORTED_MODULE_1__.canEscapeAfterPlantingBomb)(this.store, this.player))
+            return false;
+        if (this.player.previewBomb.wouldHitVisibleItem(this.store))
+            return false;
+        if (this.player.bombWouldHitOpponent(this.store))
+            return true;
+        if (!opponent)
+            return false;
+        const itemHuntBombSpot = this.bombSpotPlanner.findBestItemHuntToward(opponent);
+        if (itemHuntBombSpot && (0,_board__WEBPACK_IMPORTED_MODULE_0__.samePosition)(itemHuntBombSpot.position, this.player))
+            return true;
+        const bombSpot = this.bombSpotPlanner.findBestToward(opponent);
+        return Boolean(bombSpot && (0,_board__WEBPACK_IMPORTED_MODULE_0__.samePosition)(bombSpot.position, this.player) && this.player.bombWouldHitTarget(this.store));
+    }
+    movePlayer() {
+        const opponent = this.getAliveOpponent();
+        const context = {
+            store: this.store,
+            player: this.player,
+            opponent,
+            bombSpotPlanner: this.bombSpotPlanner
+        };
+        for (const strategy of this.movementStrategies) {
+            const decision = strategy.choose(context);
+            if (!decision)
+                continue;
+            if (decision.step)
+                this.movePlayerTo(decision.step);
+            if (decision.handled)
+                return;
+        }
+    }
+    getAliveOpponent() {
+        var _a;
+        return (_a = this.store.players.find((candidate) => candidate.id !== this.player.id && candidate.alive)) !== null && _a !== void 0 ? _a : null;
+    }
+    movePlayerTo(next) {
+        var _a, _b;
+        const direction = (_b = (_a = _board__WEBPACK_IMPORTED_MODULE_0__.DIRECTIONS.find((delta) => this.player.x + delta.x === next.x && this.player.y + delta.y === next.y)) === null || _a === void 0 ? void 0 : _a.direction) !== null && _b !== void 0 ? _b : next.direction;
+        const bomb = _entities_bomb__WEBPACK_IMPORTED_MODULE_3__.Bomb.findAt(this.store, next);
+        if (bomb) {
+            if (direction && this.player.kickBomb(this.store, bomb, direction)) {
+                this.player.moveTo(next, direction);
+            }
+            return;
+        }
+        this.player.moveTo(next, direction);
+    }
+}
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/bomberman/core/constants.ts":
+/***/ "./src/bomberman/core/board.ts"
+/*!*************************************!*\
+  !*** ./src/bomberman/core/board.ts ***!
+  \*************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   DIRECTIONS: () => (/* binding */ DIRECTIONS),
+/* harmony export */   DIRECTION_VECTORS: () => (/* binding */ DIRECTION_VECTORS),
+/* harmony export */   GridPosition: () => (/* binding */ GridPosition),
+/* harmony export */   getAdjacentPositions: () => (/* binding */ getAdjacentPositions),
+/* harmony export */   inBounds: () => (/* binding */ inBounds),
+/* harmony export */   isContributionCell: () => (/* binding */ isContributionCell),
+/* harmony export */   isEmptyCell: () => (/* binding */ isEmptyCell),
+/* harmony export */   isPassableCell: () => (/* binding */ isPassableCell),
+/* harmony export */   manhattan: () => (/* binding */ manhattan),
+/* harmony export */   positionKey: () => (/* binding */ positionKey),
+/* harmony export */   samePosition: () => (/* binding */ samePosition)
+/* harmony export */ });
+/* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./constants */ "./src/bomberman/core/constants.ts");
+
+const DIRECTION_VECTORS = [
+    { dx: 0, dy: -1, direction: 'up' },
+    { dx: 0, dy: 1, direction: 'down' },
+    { dx: -1, dy: 0, direction: 'left' },
+    { dx: 1, dy: 0, direction: 'right' }
+];
+const DIRECTIONS = DIRECTION_VECTORS.map(({ dx, dy, direction }) => ({ x: dx, y: dy, direction }));
+class GridPosition {
+    static from(position) {
+        return position instanceof GridPosition ? position : new GridPosition(position.x, position.y);
+    }
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    key() {
+        return `${this.x}:${this.y}`;
+    }
+    equals(other) {
+        return this.x === other.x && this.y === other.y;
+    }
+    manhattanTo(other) {
+        return Math.abs(this.x - other.x) + Math.abs(this.y - other.y);
+    }
+    translate(vector, distance = 1) {
+        return new GridPosition(this.x + vector.dx * distance, this.y + vector.dy * distance);
+    }
+    inBounds() {
+        return this.x >= 0 && this.x < _constants__WEBPACK_IMPORTED_MODULE_0__.GRID_WIDTH && this.y >= 0 && this.y < _constants__WEBPACK_IMPORTED_MODULE_0__.GRID_HEIGHT;
+    }
+    adjacent() {
+        return DIRECTION_VECTORS.map((vector) => (Object.assign(Object.assign({}, this.translate(vector).toPlain()), { direction: vector.direction }))).filter((position) => GridPosition.from(position).inBounds());
+    }
+    toPlain() {
+        return { x: this.x, y: this.y };
+    }
+}
+const positionKey = (position) => GridPosition.from(position).key();
+const samePosition = (a, b) => GridPosition.from(a).equals(b);
+const manhattan = (a, b) => GridPosition.from(a).manhattanTo(b);
+const inBounds = (position) => GridPosition.from(position).inBounds();
+const isContributionCell = (store, { x, y }) => inBounds({ x, y }) && store.grid[x][y].commitsCount > 0;
+const isEmptyCell = (store, { x, y }) => inBounds({ x, y }) && store.grid[x][y].commitsCount === 0;
+const isPassableCell = (store, position) => isEmptyCell(store, position) &&
+    !store.bombs.some((bomb) => !bomb.exploded && samePosition(bomb, position)) &&
+    !store.activeExplosions.some((explosion) => explosion.contains(position));
+const getAdjacentPositions = (position) => GridPosition.from(position)
+    .adjacent()
+    .map((next) => ({ x: next.x, y: next.y, direction: next.direction }));
+
+
+/***/ },
+
+/***/ "./src/bomberman/core/constants.ts"
 /*!*****************************************!*\
   !*** ./src/bomberman/core/constants.ts ***!
   \*****************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   BOMBERMAN_AI: () => (/* binding */ BOMBERMAN_AI),
-/* harmony export */   BOMBERMAN_AI_SCORE: () => (/* binding */ BOMBERMAN_AI_SCORE),
-/* harmony export */   BOMBERMAN_BLAST_RANGE: () => (/* binding */ BOMBERMAN_BLAST_RANGE),
-/* harmony export */   BOMBERMAN_BOMB_FUSE_FRAMES: () => (/* binding */ BOMBERMAN_BOMB_FUSE_FRAMES),
-/* harmony export */   BOMBERMAN_DEATH_ANIMATION_FRAMES: () => (/* binding */ BOMBERMAN_DEATH_ANIMATION_FRAMES),
-/* harmony export */   BOMBERMAN_EXPLOSION_DURATION_FRAMES: () => (/* binding */ BOMBERMAN_EXPLOSION_DURATION_FRAMES),
-/* harmony export */   BOMBERMAN_EXPLOSION_SPRITES: () => (/* binding */ BOMBERMAN_EXPLOSION_SPRITES),
-/* harmony export */   BOMBERMAN_MAX_FRAMES: () => (/* binding */ BOMBERMAN_MAX_FRAMES),
-/* harmony export */   BOMBERMAN_PATH_BLAST_COST: () => (/* binding */ BOMBERMAN_PATH_BLAST_COST),
-/* harmony export */   BOMBERMAN_PLAYER_SPRITES: () => (/* binding */ BOMBERMAN_PLAYER_SPRITES),
-/* harmony export */   BOMBERMAN_SPRITE_SETS: () => (/* binding */ BOMBERMAN_SPRITE_SETS),
-/* harmony export */   BOMBERMAN_SVG: () => (/* binding */ BOMBERMAN_SVG),
+/* harmony export */   AI: () => (/* binding */ AI),
+/* harmony export */   AI_SCORE: () => (/* binding */ AI_SCORE),
+/* harmony export */   BLAST_RANGE: () => (/* binding */ BLAST_RANGE),
+/* harmony export */   BOMB_FUSE_FRAMES: () => (/* binding */ BOMB_FUSE_FRAMES),
+/* harmony export */   BOMB_KICK_ROLL_INTERVAL_FRAMES: () => (/* binding */ BOMB_KICK_ROLL_INTERVAL_FRAMES),
+/* harmony export */   BOMB_LIMIT: () => (/* binding */ BOMB_LIMIT),
 /* harmony export */   CELL_SIZE: () => (/* reexport safe */ _shared_constants__WEBPACK_IMPORTED_MODULE_0__.CELL_SIZE),
+/* harmony export */   DEATH_ANIMATION_FRAMES: () => (/* binding */ DEATH_ANIMATION_FRAMES),
 /* harmony export */   DELTA_TIME: () => (/* reexport safe */ _shared_constants__WEBPACK_IMPORTED_MODULE_0__.DELTA_TIME),
+/* harmony export */   EXPLOSION_DURATION_FRAMES: () => (/* binding */ EXPLOSION_DURATION_FRAMES),
+/* harmony export */   EXPLOSION_SPRITES: () => (/* binding */ EXPLOSION_SPRITES),
 /* harmony export */   GAP_SIZE: () => (/* reexport safe */ _shared_constants__WEBPACK_IMPORTED_MODULE_0__.GAP_SIZE),
 /* harmony export */   GRID_HEIGHT: () => (/* reexport safe */ _shared_constants__WEBPACK_IMPORTED_MODULE_0__.GRID_HEIGHT),
 /* harmony export */   GRID_WIDTH: () => (/* reexport safe */ _shared_constants__WEBPACK_IMPORTED_MODULE_0__.GRID_WIDTH),
-/* harmony export */   PLUNDER_BOMBER_SPRITES: () => (/* binding */ PLUNDER_BOMBER_SPRITES)
+/* harmony export */   ITEM_DROP_CHANCE_BY_LEVEL: () => (/* binding */ ITEM_DROP_CHANCE_BY_LEVEL),
+/* harmony export */   ITEM_DROP_MAX_SPARSE_MULTIPLIER: () => (/* binding */ ITEM_DROP_MAX_SPARSE_MULTIPLIER),
+/* harmony export */   ITEM_DROP_TARGET_EXPECTED_COUNT: () => (/* binding */ ITEM_DROP_TARGET_EXPECTED_COUNT),
+/* harmony export */   ITEM_SPRITES: () => (/* binding */ ITEM_SPRITES),
+/* harmony export */   MAX_FRAMES: () => (/* binding */ MAX_FRAMES),
+/* harmony export */   PATH_BLAST_COST: () => (/* binding */ PATH_BLAST_COST),
+/* harmony export */   PLAYER_SPEED_UNITS: () => (/* binding */ PLAYER_SPEED_UNITS),
+/* harmony export */   PLAYER_SPRITES: () => (/* binding */ PLAYER_SPRITES),
+/* harmony export */   PLUNDER_BOMBER_SPRITES: () => (/* binding */ PLUNDER_BOMBER_SPRITES),
+/* harmony export */   SPEED_ITEM_BONUS: () => (/* binding */ SPEED_ITEM_BONUS),
+/* harmony export */   SPRITE_SETS: () => (/* binding */ SPRITE_SETS),
+/* harmony export */   SVG: () => (/* binding */ SVG)
 /* harmony export */ });
 /* harmony import */ var _shared_constants__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../shared/constants */ "./src/shared/constants.ts");
 /* ─── Re-export shared constants so bomberman code has one import location ─── */
 
-const BOMBERMAN_BOMB_FUSE_FRAMES = 8;
-const BOMBERMAN_EXPLOSION_DURATION_FRAMES = 4;
-const BOMBERMAN_MAX_FRAMES = 1200;
-const BOMBERMAN_BLAST_RANGE = 1;
-const BOMBERMAN_SVG = {
+const BOMB_FUSE_FRAMES = 8;
+const BOMB_KICK_ROLL_INTERVAL_FRAMES = 2;
+const EXPLOSION_DURATION_FRAMES = 4;
+const MAX_FRAMES = 400;
+const BLAST_RANGE = 1;
+const BOMB_LIMIT = 1;
+const PLAYER_SPEED_UNITS = 100;
+const SPEED_ITEM_BONUS = 5;
+const ITEM_DROP_CHANCE_BY_LEVEL = {
+    NONE: 0,
+    FIRST_QUARTILE: 0.05,
+    SECOND_QUARTILE: 0.1,
+    THIRD_QUARTILE: 0.18,
+    FOURTH_QUARTILE: 0.28
+};
+const ITEM_DROP_TARGET_EXPECTED_COUNT = 3;
+const ITEM_DROP_MAX_SPARSE_MULTIPLIER = 3;
+const SVG = {
     PRECISION: 4,
     HEADER_HEIGHT: 15,
     MONTH_LABEL_Y: 10,
@@ -162,164 +517,148 @@ const BOMBERMAN_SVG = {
     BOMB_Y: -9,
     BOMB_WIDTH: 16,
     BOMB_HEIGHT: 18,
-    BOMB_PULSE_SCALE: 1.1,
-    EXPLOSION_SPRITE_CELL_SPAN: 3,
-    EXPLOSION_SPRITE_GAP_SPAN: 2,
+    BOMB_PULSE_SCALE: 1.12,
+    ITEM_WIDTH: 16,
+    ITEM_HEIGHT: 16,
+    BLAST_THICKNESS: 12,
     EXPLOSION_OPACITY: 0.9,
     MIN_DURATION_MS: 1000,
     DURATION_SPEED_DIVISOR: 2
 };
-const BOMBERMAN_DEATH_ANIMATION_FRAMES = 8;
-const BOMBERMAN_PATH_BLAST_COST = BOMBERMAN_BOMB_FUSE_FRAMES + 2;
-const BOMBERMAN_AI = {
+const DEATH_ANIMATION_FRAMES = 8;
+const PATH_BLAST_COST = BOMB_FUSE_FRAMES + 2;
+const AI = {
     ESCAPE_MIN_SEARCH_DEPTH: 4
 };
-const BOMBERMAN_AI_SCORE = {
+const AI_SCORE = {
     BLASTED_CELL_WEIGHT: 3,
     ORIGIN_DISTANCE_WEIGHT: 2,
     OPPONENT_DISTANCE_WEIGHT: 0.1,
     CONTRIBUTION_COUNT_REWARD: 0.25,
+    ITEM_DROP_CHANCE_REWARD: 40,
     ROUTE_IMPROVEMENT_REWARD: 0.5,
     BACKTRACK_PENALTY: 6
 };
+const ITEM_SPRITES = {
+    blastRange: {
+        width: 16,
+        height: 16,
+        data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQBAMAAADt3eJSAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAbUExURdAAADCgWHAYAPh4APjIAPj4+BgYGPgoAP///+PC664AAAABYktHRAiG3pV6AAAACXBIWXMAAA7DAAAOwwHHb6hkAAAAB3RJTUUH6gUdCQIvh672IgAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyNi0wNS0yOVQwODoyMDo0OSswMDowMFodDlQAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjYtMDUtMjlUMDg6MjA6NDArMDA6MDC+2PM7AAAAKHRFWHRkYXRlOnRpbWVzdGFtcAAyMDI2LTA1LTI5VDA5OjAyOjQ3KzAwOjAwrWVcEwAAAGVJREFUCNc9zsENgDAMA8CECZpMACkwACoLtBYTlAkQrMD6KCDq10l+2ER/WERl0OCIlmNPLJbGXHpiXSvgiDvqi2mrp6NLP9BQga+arwtLoC7l+3BwhKUyBGIdUUx8S81EQnvxAGrnE5e2ebHeAAAAAElFTkSuQmCC'
+    },
+    speed: {
+        width: 16,
+        height: 16,
+        data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQBAMAAADt3eJSAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAtUExURQAAANAAADCgWBgYGHAYAGiIoPj4+JC48ABg+ChAMPjIAPh4APgoAFBoeP///3UmhZMAAAABdFJOUwBA5thmAAAAAWJLR0QOb70wTwAAAAlwSFlzAAAOwwAADsMBx2+oZAAAAAd0SU1FB+oFHRMBD4Zco48AAAAldEVYdGRhdGU6Y3JlYXRlADIwMjYtMDUtMjlUMTA6NTQ6NTUrMDA6MDC2y+NcAAAAJXRFWHRkYXRlOm1vZGlmeQAyMDI2LTA1LTI5VDA4OjIwOjQwKzAwOjAwvtjzOwAAACh0RVh0ZGF0ZTp0aW1lc3RhbXAAMjAyNi0wNS0yOVQxOTowMToxNSswMDowMAQiGSsAAABsSURBVAjXY2CAAUEoYBBSUjJxcXFWBDFM0yMmgxjKq/ZAGEoWHagiysZQEcuy9HIQQ3h6enlpR6chg3C7cWiH8UxDBuHJqywnr7I0ZBCyurnY6uZiEGPmZquZm0HaVxsprzYCGWispGSspAgAoLgj6HdswdIAAAAASUVORK5CYII='
+    },
+    bombCapacity: {
+        width: 16,
+        height: 16,
+        data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQBAMAAADt3eJSAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAeUExURdAAADCgWBgYGChAMFBoePj4+PgoAGiIoJC48P///8UaA3MAAAABYktHRAnx2aXsAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAAB3RJTUUH6gUdFRYQClpWXgAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyNi0wNS0yOVQxMDo1NDo1NSswMDowMLbL41wAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjYtMDUtMjlUMDg6MjA6NDArMDA6MDC+2PM7AAAAKHRFWHRkYXRlOnRpbWVzdGFtcAAyMDI2LTA1LTI5VDIxOjIyOjE2KzAwOjAwoPP3wgAAAGtJREFUCNc9ju0JgDAMRJNOEJ2gXnWBphPYgBuIcxTFCcS1xfpxvx4HxzuiL9y0QAchbqF9nD0x0rgNRYjDURZAyKWl7Dl6ctOZe4UnZ6tFVDDLtUlmGm8IliswVPWeM4ICjwJAJ6+0kf/FBY3+EmtiU+0fAAAAAElFTkSuQmCC'
+    },
+    bombKick: {
+        width: 16,
+        height: 16,
+        data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAXVBMVEUHBwfQAAD4+Pj4yABwGAAYGBgwoFj4eAD4KAAoQDBQaHhoiKCQuPAAYPjYsJCYcFDn587QOADQaACQMABgAAAxGCm9OHP/ee//vv///+dzvq05cXv/AAB/AAAAAAAYEVbmAAAAH3RSTlP///////////////////////////////////////8AzRl2EAAAAH5JREFUeJxdz1EOwzAIA9AGY4PI1Psfd3LVdtL8k+SJEHKsO7zXY4kkxaCcdSwyNp/zBfuzh5TqgdkzhPC7MkMCpYL4NEUBgHgavE8ySzzDICAz0OQZBhewATTjAlewG6ie2AagLFWd269USRC7u5qew+OUxOzOF5zrj4a/fAF4DgSeMuBtyAAAAABJRU5ErkJggg=='
+    }
+};
 /* ───────────── Bomberman player sprites ───────────── */
-const BOMBERMAN_PLAYER_SPRITES = {
+const PLAYER_SPRITES = {
     idleDown: {
-        x: 305,
-        y: 5,
         width: 16,
         height: 21,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAVCAYAAABPPm7SAAABgklEQVR42o1UIW/CQBh91yAmJ7v+g5OcY8kMsssExUFCliCxzTKBRCykFjWGIEECgjCBaEKWtO6Q9w/YSZKZuU5AL71y7folJ+679959330vR2CIuk0TU/4gBUFZ1G2a1G2aTHfLJPn51tZ0t0zS80Jyh22viPnVYVtNxErJ1Amw2DP8F4s9A3UC1aaVHjTfflE1stha/lA+eKVk+2ul7Wt5sv1+B/YkwDdUA6Y5+eABYx/aGwDApDes3EIWqwSoE1QWyGJJdoyD+QiPL+VC27GPSW+oTEXyXqBOoF6537gHAHzEEQAgfL2BOPqaI0kVC5dZ2sqS+YZiMB+pPrvtCN12pHoezEfgGwqjE3nLA2YU/TUvvLm/5sCMgrc8JaJ8IOMQdqMJGYcAAHH0sXg+e4EthRGjteDKE2QcwpWnwgpMGKLKB8DWK23O7DIFfpmCOJ4dmMVb2Rs+7VsdGEdX5BSjVZBPFrVhwtUOUhAX1yL57yvvEVeecJCCEBOg6O8zYf4AxGvpYTg/OGAAAAAASUVORK5CYII='
     },
     walkDown0: {
-        x: 9,
-        y: 8,
         width: 14,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAYCAYAAADKx8xXAAABiUlEQVR42p1Uv2vCQBT+LmTo2PGa/+CNuS2CFBxbHIybAZeOrqFTR4ci6dipKkVwtIvYwaFQCrol4/0HNpuFLm7XQS8mMU2tDw7C996X9+N7dww5szkpFFgUS1aEw+akbE6qP58o9f2ZOf35RGn/AaklZgeE/GmJWUJmNidFVoDxu8Ax5l2GkCsfBgDU7jc41nSsmQbjqltK4h8vybeZJvGnC4i6RDilDEFjcdUFej4AbEs9xU4mMi1HZ9TF9W1QGjzr+Xhs3yGKJWNpLTujbilRk5KMZav22+pletTTJCuA11zAay5AVpDxZeSwOalwShisPZB1BuFU9lI4FWAZYLDeIJyOIepQUSyZme8BAORkn0HU5RZrAzeprIbNSYUNFxjS3w0OCWHDhc1JmXkfWQGEU8HD826pm0C4XECu/GIdi8hAMSmjY3pIuq/0tEVdZl4BI6/jYO0dtKaxdGVJqa/8HNypbW/K8g1X8RcAoAiPYskM/RftLL2Puxibk2L/WbfS4RyzpwDwA3eo2etvVgkzAAAAAElFTkSuQmCC'
     },
     walkDown1: {
-        x: 75,
-        y: 8,
         width: 14,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAYCAYAAADKx8xXAAABkElEQVR42p2UsUvDQBTGf1c6OHY88x/cmGwVRHBUOthuDbg4ugZxcHSQEsdOtiKCY3Uo7eAgiNBuccx/ULNVcHE7h/bSXBrb6oOD8N378t5977sT5MKVSlMQ70ksinBcqbQrle4897T++rBW57mnzf4SqekNlgj51fQGKVm4UmnlhDy8emwS/l5EPAkoAexffbNpmNxyFkx26ytJ8u0x/S5nSfJmG68WE/WVRTBYsluHVgAwa/U/UQJ4Od/amGByhRnH6f0lh2fhStKgFdA+vuA9iYXIzlI5YaraSXUHgO54lFaKJ0HqILHOar9ZzxLHqKmcEL8xwm+MUE5o7VniuFLpqK/oTn2UE+LN2wTwqjszbD4S05llgPbxBQBxb1HBq8XF43Cl0kNZgVu1/oC3iuiojiuVLuf3TKvXd3NTNyAaj4gngZUnihQ1gpjIk6w5ZkXKn8tg2VeglJ9jd+ovHa0IS1sdygqyuj+7KeMXDpJPALK49/S4aNVUio7su2iShrJi4eaH4i92WynOJj4F+AFlodcPvNujWwAAAABJRU5ErkJggg=='
     },
     walkDown2: {
-        x: 108,
-        y: 8,
         width: 14,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAYCAYAAADKx8xXAAABf0lEQVR42qVUMU8CMRT+ShgcGev9g47X7UiICSPEgWPjEjf/wcU4ODoYU0Ymwbg4IgOBgYHE5diOsf8Au0Hi4mQdzh70OOHUlzRpXt/X9/q9rw/IMZcy7VKmccBIHigvcKkkwaEs/dlQ6/c3a/VnQ51bhUuZ7vDJHiC7OnySgolLmWaOwPMrRxELzmLIVYgSANTvPlDUTGwJf7Ry1qFq/mHEfbgPVDUf9OEU/FwiHjMr3vialwI9U+r8+uTXpZaWShK5CjFYRIUADbXBUklCdnvJHIHu5+1RkCW5Y9rMSs9qhyGEOQJBO0LQjsAcYZ2lbzTZ4jHDYB2AOQLcq27Z9KqJ75tVU1najsE6QO/iBgAgh9sM/FwmGVs+8AgA0lZO80r8Tznmjd2npNygDcSLCHwUWuRYrMatRG589JKSAgByFe6xWjagKa2kh1NaQWMnOG75UIs5GmpjswoA1Ksjb28upF4dU1qB9ZFNgAFkb/9xWO2CjbSOqYcUmXB5k+4LCXHPPa24MKoAAAAASUVORK5CYII='
     },
     walkDown3: {
-        x: 141,
-        y: 8,
         width: 14,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAYCAYAAADKx8xXAAABeklEQVR42p1UIU/DQBh910wgK4/9g5Ot2xKyZHJkYpujCYagsBUIfgCiyCk2gpksCELFRJOZ1bXy/kF3jiUY3E2UK72228q+5NLm+r1+73vfuwNKYVEmLcokjoRRBgXUREBNHAOTMnBfYiI4qf2gKM6WvpTfG23Nlr6sbcGiTF7ZnxVAeXl3XzmYWJRJ1vawWNloEk4vBk/dTJz+4w+ahso1cGKcDGzVbYqL8V7AJYCpAob3Z7hZ/YHo8znsIUf8wTSQPeQIqJlRTQQnPHUxj9aNKA7EFongxFCumF4/wOnFWdXbjZ79wvI95aDGlitbzyiCVE+s7cGZrOFMMvoBNRGPxpr5jXLzAGB3uloV2ulrz8o44lE2Btvv5ooufEBEIWinDxGFugHUOVQRUDOvrpS0398wENuqc4o01PvT6xzOZA3W9iritA4pGP/OlqcuAmpqFQ8Ceerm1IvqJ4ITouQNqJlTFFGo/b32dCjOxcRjoERw8i/nFC+sHSx90I3EuUDEAAAAAElFTkSuQmCC'
     },
     walkRight0: {
-        x: 8,
-        y: 41,
         width: 16,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAYCAYAAADzoH0MAAABZ0lEQVR42p2UPU8CMRyHnxIHRsdy36Cb53YkLIw4CZskxoTBOOtAoh/A4VYmwM2RyejAwAgbN943gG6SuLjVRbB3XMvhL2ly7eX//rSCAoVSmaLzRKcifyZsg0SnIpTKqCCm+fwNQC+qAzBezBlcP+07CqUy5u7RrM8iE0plrs7fzWg6MeZrXbhG04mxM6wA6MWMlt5gR3apF9VRQbzLupLoVLT0BmAvbZfsICd27T4j3Wjvvi+AgV3CIelGGzms0dIb5LCGHNbA52C8mFNWGQezfpVjJfIAFTGQ7wFAS29IdCqEi0LXSGf9KunqYQeTcKXmm4pNoncKKogBWL4pALqdub+JZdTtzNlD2aV09ZDZv07q3N/0/pHBi2J52T7MgasHmRJue24ODk1CBXFmhKVK2E5g25P8q1RxRd5GH392vVkJ388PeYqMmn84/z48NlAVH3m2cdE+lMqIsvi6kBbH3oP8XfgBu12xmgbSwmIAAAAASUVORK5CYII='
     },
     walkRight1: {
-        x: 74,
-        y: 41,
         width: 16,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAYCAYAAADzoH0MAAABdklEQVR42p1UIW/CQBh9RyaQyGv/wbm1riQYZJcJihvJsqRqegiS7QdM1KKAuUk2QYZAIIuj8v4BnGwyM3cTW7truWvLXtKkvfS+733vvTsCDRzKpG49EZyU14i6IRGcOJRJZkfoP38BAEKvCwBY7GJMb59OCzmUSXn/KI+XnnQokzfuh5xvllJ+HrXPfLOUKsMWAIjdFr5IoXY2IfS6YHaUs24lghNfpABwQtsEtcmFOnvVJtEL8vcrAFN1hDqIXgA6s+CLFHRmgc4soKrAYhejKQoFtpM2zgUpB0iXgbIGAOCLFInghJhSaLJ0O2mDH8Z5mIiJWpUrahIrXWB2BADYrxgAYDSMq0VsgtEwxkmUTeCHceH7ddnFw134DwYvDPtBUJ8DnQbMjuC+v/1oMQjgXnNzDuqcYHZUsLDRCJkDOk2MDLLO+xUrUF7TTiGF2iirP1Ov/xfl30tnTTvI7o9ClMvz6lTPxKw8TOeESnuYmhRSXfgGrX26OKISwJ0AAAAASUVORK5CYII='
     },
     walkRight2: {
-        x: 108,
-        y: 42,
         width: 15,
         height: 23,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAXCAYAAADUUxW8AAABgElEQVR42qVULW/DMBB9jgoGC93+A7MlLJVKClsFNHBgpOovWDQN9AcMlA5MbcYG24JqBQWFDUug/0FiGGlkzAOZXTcfSqU9yVLs0927e/cUAgA2ZRIAEsGJ+i4jEZyU34hNmYynPkR0wljkYP0lRq8/AICZOwAAhNEZb4+LahGbMpndu9KmTD44X3J93Ej5ndWe9XEjzc6sRHBSZmzCzB2A9Zd6TEsFyq02wSSwcCPC6Awx9DF5Xuq3TluSGPoAgAkAuuoVj17eziyGPuiqh7HIL4kGdPLp5U63dysstTueBrpAYyfzDGKeXUxiBtUKzLWZAj1ZC/A00EapWK7JnnU2tZqCrF8wxnsG814rWBOz43HEe4bP97ASr8x8oF2MRV7bcjwtdu7stkgEJzc7rA6NgqkZnT+vx9EZPA2utOnUJRYihXA8DkRFEZ4GONAuAOixOuV5lQ0dj+skADrRxBUzdUfAhxKH6b+LCfNOyvIrRfWqdtt2wdqcVWemf9nzF67Fws06Dc9qAAAAAElFTkSuQmCC'
     },
     walkRight3: {
-        x: 142,
-        y: 42,
         width: 15,
         height: 23,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAXCAYAAADUUxW8AAABf0lEQVR42pWUr27CUBjFf20qkJMX3uDK1kEyg2RBgBzJDCE8wCoQyAlEJ6dgjwATyyYQldSBvG8AV5LMTO1OsHb9u3QnadJ70/Pdc77v9ALgCmlcIQ3/hOUKafaDIToK6elz5YcHraz8ngMkRNkK6C4+ARi3OwA8RzsAnu7mpqwArpDm1nszq+3amI9T6bPargvWbFdIkz6xCuN2B9kKSBewgYLUKjx+PWTWdt3O6uthoaFOHRKAWDahX5OcIVXABghnjQJRLJsFme/iKks+aGWpo084ayQzLVUyOdHT50xYnN/0+IZZAIsdNzkSwL09B/xsPPNhAZCtIBlLWWTj0608MY39q0zevb5iP7g00XvZcNDKcmJi3Iw44+ro4/XVn2MsHZU6+pSp8PqbIvmgldWj3v+cKEQap8qvbAV4P1nfRztGUwrddmK/ot1FR2GSqNH0QkpbyYck41m0u+hJfKP4ldLjsNjxQkdhUiB/QpqUnrtV5fkvFEJSp0j+DvsGRtzJVsVjbugAAAAASUVORK5CYII='
     },
     walkRight4: {
-        x: 207,
-        y: 42,
         width: 15,
         height: 23,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAXCAYAAADUUxW8AAABgklEQVR42qVUIW/CQBh9RyqQkwf/4BytK8myZLJLBSBJZpapySEQk4gJJhELdGLJJJsgmUBUtq6V9w/gZJOZqd1E28u1HAS2lzS5fs37vnfveykBAJsyCQCp4KQ815EKTuo1YlMmk14fIg7hiQysPcXl4zcA4MbtAgCCOMLs+mG3iU2Z3HZcue240qZMLtZLKb+2xmexXkpdGdFl371OKhNNGF4k4JsRUsFJoyyy9vQgUZz3EcSRuhIAWOVBL5qIdN7C1W0+YFbUGzgBnshA5y31vkMO4ujoZoocjps4FURfmWnH+r11+angpJKacmV6Ex3huKnWVJlcb7APesIahz4mK4ZkxfJwDKL9htVRkhyfqwANBxFsylREjbKTXm6O8/G+09DxuVLYwB9wlGGsPYXjdpEUweGbUYVsmTp/0jMAwD2AJI7w9hzA8bmqe2AyFZxYh+Q9/UzgiQyOXxj4kpuIwgvLJNcTmZqilBREEYcw/gz2rq1wv/xVGbN9quP/iucv403HnBp4/m8AAAAASUVORK5CYII='
     },
     walkRight5: {
-        x: 241,
-        y: 42,
         width: 15,
         height: 23,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAXCAYAAADUUxW8AAABeUlEQVR42qWUr2/CQBTHPyUIJPLGf3CyOEhmkKBgcglmQc02C2JyghDsxDIwS5AFsWwCUbOEuk72P4BKkhncTZTrrqX8yl5ySXPX9973vt/vPQBsIZUtpOLCsGwhVdDuEPkezWhz8MfvKLSye0WAyPeSDVkZ0RhsuavVAZj4S7x+CXBUXoEE9njhqvHCVepnvbfGC3fvagX9cf/2BJB0zAtZGWEWKNpCKlkZAduDSdF1hxbA0CHsZjo3BtuTzIrXK1oPI3JhnxNZNQr8IwoAz93HZGPiL/chf82Ieuv9ZK1drOVfgWyRj6HDpyinHWZqbZokG16/RLhyUo6zsmY5dU/dvRlt8gkL3mWyAG5vlvkPw+watDsAVOezlKuqO9dN3XoKdvEUzHDlELoxmqmbfmGpZLPjsbCFVCnCbCGVSYYJN9jJFq6cFGFHYeuk6cskfiC9MqLWiA/ns5gwUyKzclYinainjnXu7NJK6MTkzpcOP832RQ7LzrBfnle9zbyp77EAAAAASUVORK5CYII='
     },
     walkUp0: {
-        x: 9,
-        y: 74,
         width: 14,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAYCAYAAADKx8xXAAABj0lEQVR42sWUoU/DQBTGf7dMTCIv/Q9Otm7ISZKJDceSmSmCRSwBiUDU4iiCBDm1gEBUtq6TJ/CsbiQzcw8BV67dYKD41PW9e+++970vVTQQaiPswKK0yv9u+QWhNnJ2fwVAMRhSDIYAnN1fVfmtV26fZyLrpch6KaE2IqcXIqcXH+fP+O3z7Ks41EZOoscq6V9oNpT1Uk6iRwm1kTZA73pTYzDpHjJ5SXeNSu96gx17M/4V/1SYTjskebb3cpJnpNMOAMop6/bnxGkWONyML1mUVil/lyaItxR2SKcd7Ot55SC1z2rfWa8mTjE3AJggZnScMTrOMEFcyzm03WvF3JCsRpigQ+TNGHUPIY9JVhuK+QNRH1mUVrX9LjfjSwDsbJuiHcPEe7UVaiPFYAh3Zv+Ad4ZiMKTyqg8TxDWqAEWeYV/PazG1S1EnSEWzUVTboy9S1Lc01Y76tvYXaDX3mKxG21b7jPnMKqpP+gDd7QFQ5ilH5RsAu+KL0qqW6+KSvzmH2oj6i91+FOc3PgV4B9TS3qWPX7w1AAAAAElFTkSuQmCC'
     },
     walkUp1: {
-        x: 75,
-        y: 74,
         width: 14,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAYCAYAAADKx8xXAAABgklEQVR42qWUr2/CQBzFP0cQSOSF/+Bk60AilyAARxMMEotATCIQ2DlA4NkEAYGoLO6QJ/AMtyUzuJvY2l1bNiD7JhX9/uh7976vJ8iEJ5XlQuxPRrjvBXfAk8r2FyMAdLOFbrYA6C9GST016Ellg3aEPoT0qrUcWq9aQx9Cgnb0w8iTynb8tbUfr8kz3S5tjDDdLlO1jr+2nlS2CFAfn3MIvUN46ajUx2dM1znjvfH/wdkuutrs9hQBwmGJ+vicFLLKugPhsASAiJWN93ctnrqP7E9GCNcAqjLJKewimeMgcZC4ZrXfrJdSVa8UAKoyIWhHBO0IVZmkajnL6ZXCbxhUZYLviONXa1+5hkGvVMKsmKVijgPM8oY9elLZjSzDXF3vnit0s0XiVTeyVAH0LsIcB6mcuKRoLIhLP6usyP79sUhZtf2GSd0CheweZ29B3qMXcgnVjSwjq3UATruQh9M7AG7ef3n+oRojxfdLsr/vpo0sp/LxB8U9dvtTnFt8CvAJx6DEoCOKVjcAAAAASUVORK5CYII='
     },
     walkUp2: {
-        x: 108,
-        y: 74,
         width: 14,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAYCAYAAADKx8xXAAABeUlEQVR42qVULW/DMBS8TAGFhVb+gWHMUjIpsNJAW9ZKJVPRaEBB4UBBaNlKJg12A1ULBiKNJMyFBuNJ4KSSMg9MTu3E/dh2KLLfPd87nwNY4BMqfUIlzsCxkXivDwBgb6/V+q4URq2rE2yd+WeCZZZiMZ7JRgOfUDlkGyn3hZT7QiqpT++rak3uCzlkm2oExydUUi/GywerGi2zFABwH3QaCka3HCKPfqSG84OxaSMohPMDxBi4wR/xf6Ka6xz0GhcAkmkL4fxw0hSdkExbxwD4hMqH58erJC7GM+xK4Tj6XVIvbjisnyTyqAqAcyk5dSii4SpfUwAA9WKMBilGgxTUi409w1WfUMnXFOxOgHoxmGYOCzoGWSlz61JEHkGsmhLLSdt+j+Wk+FUArObU5fIshcgjwxxD6vEBR0AWG/LrcNVpW3KcYUva6GrFvNdHmSXoll/NGUkQwvatGpIgxJa0YTxkVaAI9e4nzdHJAC6SjKxeEzv9R/UNBfy0USHon8MAAAAASUVORK5CYII='
     },
     walkUp3: {
-        x: 141,
-        y: 74,
         width: 14,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAYCAYAAADKx8xXAAABTklEQVR42r2Ur27DMBDGP0cDgYFW3sAwZR2ZVFhpoB0snIZKA/IAAwV5hIxMGgyqFBAQaSRlDvQbpGarVDLmgcyRnT9NNLBPOsWK75c7350DdBRQpgLKFCbkdCG+2YJvtpiC725tmnAlBRl1Mi3JU6WuZ6WuZ5XkqRo8gumY5KkFmRbvv1qYBJQp5sf4+FxgjnYPHKIOm+KsDt+YK+3r4I/6H/DtVNp9LCIXOJR4Xt5PAkXkAgCIbsf+/XUyYhG5EHWISgpCzF4yPx6ssAbMCSJjIzYmDTrWgB8ZAID5MXZPZWsAoPcGq7p4FM1zpEj8yNqsrNvBN9sGTPugfDn3IwaUqYx67UtzrbWWF6zlpZ8qXa7QXeszMj/uFefmRea/jRd1iIx6VsSboO6dmXpAmaqkIERXKaNem6I8FdbXB4dc52w6TkHWyM2ZHPOH9QOrJroE5w6VZAAAAABJRU5ErkJggg=='
     },
     death0: {
-        x: 206,
-        y: 202,
         width: 16,
         height: 21,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAVCAYAAABPPm7SAAABgElEQVR42pWUoW/CQBTGvyMVk8gb/8HJ1ixgliBLEBuSZG4KS8jEJGJZaqfGDAkSEGQIRJOZNjOtvP+AnSSZmTsEveNKr4W9pObye6/93vf1gIpyKZMuZbKKIWWNALCmdQCAL3YAgFTwAu/YGgfTMQCANlsAgEEcAQDeHp5l2SC4lMnJZi7l70/lM9nMc7KIamaNALMvD5dU/zYB3w6RCk5q6rD98odLy2RzO/iII3RGQWXz5+uwfImdUQD6fg2vy5GsWA5UZ53HIDdESwifri6WYLLO0ZahROb7uVILLATJpUyuzwzxxS6XA8cG/Kdq5tuTFdMpZI0A/V6Efi8CaxycGUzHSFYM1iAld/fHoHy34GUxVpXEEWY30dGV5QKp4ERLEHEI2mxDxCG4WIDPoa30ujxj6prJSUgFJ77YQcRh5Q5MRrtgfr63XGj9ALSMJPsb+fYQIJOvmW9QFmowjgrNpzYTm/dlMmyckwpOfBSHnF4ap1eb2gOxAdYbp4TZA9mI4jenPoeaAAAAAElFTkSuQmCC'
     },
     death1: {
-        x: 8,
-        y: 206,
         width: 16,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAYCAYAAADzoH0MAAABVElEQVR42qVUMW7CMBR9RhyA8ZcbeEy2VOrCGIkBDtALsGbsyJi1U5nYgQGJgYGlEtnC6BukHiP1AO5kk3w7Lmq/FMX5/u/5++XZAoFISJpQ/qaVQCwSkiYhaTbnnTHfX71nc94ZOz8IDgGHiP4EDpGM8M8Y84R+WUYB9LnvfY84ONct6OPJvbvjXLfeAt4W6qNEOleojzKaGySwhelcRXM2BDfOiSZRDXLd9owlEpLmRBNQNoOuLsh1i9V2HQS/v76B14qEpKkXd2HSwz7aAa8dA4CuLo4VAOS0RJo994HVFaopvFpPAzktoZrCqW9F5HNOg9gJ5AShk+kRhNrn2+gSeD5QTYG6ukbBQR9wdbudWDCvuWkl3GGyqlI2c52gKu9jVjdoZRur7RqqKaCaYtBYnojWxpTNPEPVi6VbPddtX8TBe+6X+zP4Gx8NzwePEvGr/QduTytbQVkpAwAAAABJRU5ErkJggg=='
     },
     death2: {
-        x: 41,
-        y: 206,
         width: 16,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAYCAYAAADzoH0MAAABeUlEQVR42qVUsW7CMBB9sfiAjFf+wBvJlkpdGCN1gJF+BhkZGeELyi8AA8IDA0sH1CWM+QPwGKk77kDt2sEOqD0psuO79+w7P18EjyXElW/9KKsIbZYQVwlxtdgtlfo6O99it1TaHwT7gCGiP4F9JJ3mSeTLsDVN+lg5/6wJzmUNen8yoz3PZX2zAWvuUG440tcK5Ya3rgUJbIC2EBgAoua9C4pba5DL2tFFlBBXgmJQ1oc87J0AnzVjOwBAWR9mXF+rzLszB1idCvhiGQDIw/6a63oF3p1BUIzqVGB+mWJ+maI6FRAUg3dnSH820BhHwqN0q869zIjElm5CXJ17mRqlW7+kNUFQ64EYhn8a81XZdwp9W3cJcll73/1RVpHvim+EVA6GptKaSPttn/azpgLfPp+dVOyj2z5vCuVgaAQzZhMIiiEoxphNjJjKgfsanX4gD3sTkK4L5MbzC3QEZBPksoag+CbAJvc9qOheJw6ZLnD0aEsPtfZvVKwyTDYVt1sAAAAASUVORK5CYII='
     },
     death3: {
-        x: 74,
-        y: 206,
         width: 16,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAYCAYAAADzoH0MAAABpklEQVR42o1UoW7DMBB9jvYBgV7+wGwJmVqpZDBSQTu2SiODgy0sLEzh0DoyqbAJqBZQUDKp0UgL8wetYaTxZmA6106cbJaiWHfvznfP78xgWT4Xpc1+kDlD2/K5KH0uysVmVZbfJ+NbbFYl+RuDbYFNiSiOUfDz+wxPnS5kb9haJf+M8Zbt8PI4xUHmzNGdsjdEKAvw12v11/ehLGoHONUT9muBoJ9jvxattsYEBAz6eautxgEZUu62chDKwrhW5nNRptwF79xBZluEssDofoflqmsEkq2KZT4X5X5wISZIYgCA8CIjQX6c/PJRwToAILOtMggvUm3MzzPMzzPVmvAidQDFGBwILzJOIrC+1zFK2iTR001HqUwnVrcRhmyqAup5ebtDkMS1wSGuRl9dxUlNiflxYg2mcoMkVuVbhUQE2iaOrrt6OwbgIfhoHtcGTE2JOuPUCvl1H/mdqoSJJGqFSq/6rBzsB0NF0tiZIuUuUu5i7EwVyboSAeDKeA+yrQIEyQSh8lwCSYG1BKEskHK3BtCT2yaS/fUSNy0imP33SW962n8AdCQ0/3wR/FEAAAAASUVORK5CYII='
     },
     death4: {
-        x: 106,
-        y: 206,
         width: 18,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAAYCAYAAAD3Va0xAAABYklEQVR42p1VrW7DMBA++wkCrb6BWRyWV8g0MliwFxhsNBRYNHVwrGi8qEpAX2FSA/0GtWGk8d3QWefKzZ+lKInj73zffd85Ah4MozSm5ntvBcwZRmk0SuPxckL8ddF1vJyQvt/jxH2Qt+89PL0fRjdrP2r4em3S2VEWLi/RKI348xLu/NkojS4vQ3aEl6kdr2cNxbOF61mPzo1SgwWDUxOPguhNuk72VieDCQrSqQwqP0QBPv/2UPkBAAA6lcFONlFAwvTeCqDiGaVxW7To8nKSnstL3BYtcqwgSnpzCGlPmS6FkRzUqWx2ofnaQI0oLVGNaBHF4CMq6pLBMZLL3alslpdIZa6w5HIGKWcYsfJD5Cm5ptApTAi0k81iatygkQJrVCNMZEjeEilj8o0oo2BImrS3OqRKinCgURpJWSoF9VvIiF7WNC3hou7nJps6Rvj63lsh1h5qyfNo7q9o7Jf0D3HLEgh0oL3lAAAAAElFTkSuQmCC'
@@ -328,254 +667,206 @@ const BOMBERMAN_PLAYER_SPRITES = {
 /* ───────────── Plunder Bomber player sprites ───────────── */
 const PLUNDER_BOMBER_SPRITES = {
     idleDown: {
-        x: 305,
-        y: 5,
         width: 16,
         height: 21,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAVCAYAAABPPm7SAAABoElEQVR42qWUoW7DMBCGf3eZFLBJhSkYCBgwdFjLFimgAQPtY3SopQEDHS1aH2AP0MIEVNpYy2YYMBCwSQksNKiUge4SJ3U3sCO2zvf9dz6dzWAw4fDS5JdFyto+ywQO4MJoDsq2kKXDBAohzAKyFiIRS4fPgpSEzmUt0sE/rdED33mq9u60GZgt9JuE1f6kgnHC4U6PgBdweAFHtjgKjhN+UkElsEXWyKZXQIKm2OoKc7sHV3EA6TFTUgNeUGd21Qhze49I5QAAJhxeroYp0jcfABD2u4h3e2PD9DN+94pxwusKIpVjbvcQ7/YI+12jAMGRyrH68bH26M7tXiOjDhKsj/YFDdG98HFZKLwcPuFb140qbm9sfHwpRCqHHnu4sh47+oTRGqm8kTXe1U1rx3YAQMrjkNM6gFuJEEzvpB3Lfnu+f5ksUsaEw8uJGAEAlnKN902KhyA8eVhSSjxvYngBhx7fGOWJGMELOGbDuCqR4NmwCZMx0z+wlGtjyQST+BYZLFmkDA7KAVxIKSuR9vdFfdJhWaSMnfsHzwm0z78BuJnMLUIpRL0AAAAASUVORK5CYII='
     },
     walkDown0: {
-        x: 9,
-        y: 8,
         width: 14,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAYCAYAAADKx8xXAAABTklEQVR42p2UoZLCMBCGv3QQSGRPIiOD49wxg6ASHgOHrryzuHsMToLAg2NlZGUrkXU90UknKaHD3apk83+b3WwSRc9MqhsiJpVV/nzUB96ZYowJIRFIafwAykEx4GFXES4USGXV6FUIaDUCpDQJ/7SuxkX6xXQ3LC72IGQhCDBbag4ry+akA8D5Divb+RKAC0UgvJ1tdOxrlUl18zl+AyCvy8FUfV2Q6u1Dc7zeo1A2nwRryjXeRcvmkyjoIJdV4op3juP1HkT253lddgcU9NHB/q5u3K8/kcoqd/xbsyavy4cd87pka9YAbE4aqaxSJtXNYWWZ7to+bs0aESEb1y1YjzHG8C0/3M6WYt/Cyt3VWD/75utGscXYs+oHVbHH68MxSCqr1CuvP/YLJEOi/nfxNFV3oWdLHb30zt+1Y6iuZ/4k+Bb+MFavHEqs/l8uArn/P6LtpgAAAABJRU5ErkJggg=='
     },
     walkDown1: {
-        x: 75,
-        y: 8,
         width: 14,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAYCAYAAADKx8xXAAABSUlEQVR42p2UL3PCQBDFf5eJiEQGiTx5OJCdiSCyfIy6aiS1df0YVIKoT1xXRkaCRMalgl64ux6ZTFddLu/t7ts/pwjM5LonYnJplPudhoQ1C4wxPkkEcnrXgbKkGOFPVBEqWuTSqHQqCbhhBMjpE/5pg8an/I3F6zi4fQeh9IkAy0Jz2DRsT9oj2LvDphnuEoCK1gN+fzXRs4tVJtf9PpsDsOvOo6m6uCHVcjWDelxjuZpxrK93jbvuDPUvecSO9XXIKr2Lx4tondgINoAtlNdH682NbM+hfhXOaUXLPpt7EXfdefhn51WZXPe25MtC82KeERHKrLsRuwxjDB/yOfRxe9K3dqxZEOtnaC4uHYYXqKR9uFahUxVbXpccI8mlUWrK9sdegWQMFD4XD1N1qxYb+mWh/Xa4FQu34JHeZNJzETmrKUWJ6f8B6XaqqsKyGRAAAAAASUVORK5CYII='
     },
     walkDown2: {
-        x: 108,
-        y: 8,
         width: 14,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAYCAYAAADKx8xXAAABVUlEQVR42p2ULXPCQBBA32UikJWJREYerriKCirhZ+BaWSS6jp8BMojOtA4cKyMjiUTiUkH3uBzXDNOdydzmbt/cftyu4Q6xWdGqLk1lANI+I18OTwXl/sQio5WmMmkIjBlire1AIsLou+rsGYViQCgiwo4aaSqT3gsBFxsBMtqEf0oK8DYpgZLha9yo/risX817FwSYbQvWVMy2RQdaTy5760k3OTeuHj6rqO4nB8DYrGiXg5zF+dgb03KQO31xPl5d9Q9CeXl8AKDcn6511MIvB7kziIlC6lkSO/T/9VNIk5Ro5mIx+h6E5wnQqZ9/q3/TmKErm3vko+fCGWiSQmhH7WAyWmOzop3bKQAr2fSWRMEd9W0/hg/eL7qu0lTGxJpXYYVCjxzY1/1zO0VEXFutZHNNjgJaI/+hKxTqxh8Zvmg8f+2bvgEVy+bdMXba6nc0AvwAu7+3SNwDlHEAAAAASUVORK5CYII='
     },
     walkDown3: {
-        x: 140,
-        y: 9,
         width: 15,
         height: 23,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAXCAYAAADUUxW8AAABSElEQVR42qWUIXPCQBCFv2MikMggIyOvDv4BSPgZOCqLRNflZwQJojOtA9eTkZFEVuJSkdlwt0k6MH0quby3uX377uBJ2DitbZzWANEQYUi8H09Zzia8fFFHfaI5CdbaQOSc40zJ7naFS7NmfGGfSEOKuKow0TNCoOE4IKYe8Q+0Pb8ujiTbY4dQvofvn9VbV7w+peQUrE9pQM4X97V8UQTfgm0n25Dw/VEMGta6beO03o+nzRj+mK+P3e0ahkQTfCxnEwCOl5/2J8YPh4iFqOELB+OpBRpiotE57vu7FNCejCTLG7tiTtIhyFZ3tytzEoTfiiWWOp66RxmRwPi59meosbErADJ3aOZdFcb0nV//kGTu0AoFmTvcT5WriqDImbI5OSpZurWo7/ZoRtEV6ufOtsVJv3dZ08aZR+6tvqKtYY9efr4/AL+K1aQg8bD1tAAAAABJRU5ErkJggg=='
     },
     walkRight0: {
-        x: 8,
-        y: 41,
         width: 16,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAYCAYAAADzoH0MAAABgElEQVR42qVUr3PCMBh94SImkZ1ERga3ObirADn+jDl05GZx/BkgQXC3Oer4ZGRlK5F1nei+kKQp425Ptbm8l/f9FEhAZ6pNnVNtRXwmfQLVVuhMta+Y3MS07shEQIY2FhI6U+1lpnAorjBNBSYzseeCCGeUTkQC6JHvQWsNEIAMLdVWSKqtML/WYtuPQPqxn1F2AugLzLNPAMBk3f1PcxUm8XKyAIByA6yOe7zrt4C8OipcTtYRGSN2MM0Vyk33wm5hsaU9iKjLvgd+yFWBHXw8PQMA1OwLk/XNIp8DgGmqXl9Itl9uLOz3PLjgk5cvYywxdv+H4gqToZUc9184FNdALKjCENgyO/GJQRK5NDG4sUxTwTRV4MIJcAXi+FNifhJNU4FqK1wZTVO5CnBOuLH879jFQCOFzcJNtaV956JItPI0v+0Af6x9F7F910iDk5dYLPFSGd0TiC+nNpJ4dJ0NicgUcbewbh78qUyttVHqVb+UQ4uGOeJR60Oh/DsHPyw/15lZ2SzeAAAAAElFTkSuQmCC'
     },
     walkRight1: {
-        x: 74,
-        y: 41,
         width: 15,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAYCAYAAAAlBadpAAABoklEQVR42o2UL3PjMBDFf8oYHCz0QUPBDWuYMxPgzhy5fILiY8WGVxp2H8MHE5CZwphZ4IBYDWMYGKYDrhQ7Vpq+GY+lHb23f6RdRQSSahezm86q4T4ZHjadVZJqtyC7CIn0RGMgxQ1FlKTaNblmW58oz0c80ZMm3o3hQIvprEqACfEziAgYIMUlprOq/AjnOtR7ULEi/ZKfo0PL9DWss5f+P1/pniypds3eAtBuYL3TQWCZvrLeaarCst7pkejML7Y/lrSbXrkqLH/M377CA49VYadhS6rd72/fAdD5G9lLHxaAtwOU5+PYsw9Z52+TggyJT48PNLmmyXWwz/gitvWJbX2K5xxDeT6OQn16fGDyPO8hCNRjgcR0Vs1Xl4LdwoKM8txCfSNsX+l20++rwtLsLVVhOdB+CBynV3X9SLw3EQnNsCDjQBvaM/GL+eryPP0h/8ZFhINpJ32tPhsG156vB4K62XqRaXI9SaIk/70/49w/3PszwXa3JYd534LprFIxYrO3zFc65BxmGIwEZ7Fc/D0PJ4qIjPbB81fGbqxo/wGMrdCob5yBZgAAAABJRU5ErkJggg=='
     },
     walkRight4: {
-        x: 173,
-        y: 41,
         width: 15,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAYCAYAAAAlBadpAAABnElEQVR42p2UK5PjMBCEP6UMDi7UQUPBCdswpyrAW3Xk8jOOLTbcpWH7M3wwAalaGDMLChrGMDDMBxwpcuzs44boUeqeVmtGiokQbbqpfds6Fa+T+LBtnRJtugXplUikB1oLmi4mUaJNV2eGbXWiOB/xQA8aZbeWAw22dSoBRsCPQkTAApousa1TxUXOrdTPQk2Z9Ed+Dw4t9WuYp8/9OF+ZHizadPXeAdBsYL0zgWCpX1nvDGXuWO/MgHTmJ9tfS5pNz1zmjjf7t3c4yljmbixbtOlefvwEwGTvpM+9LAC/D1Ccj8PMXrLJ3keGxMCnxwfqzFBnJuzP+GJsqxPb6jR956kozseB1KfHB0bl+VkEgmpIkNjWqfnqati9WJBSnBuo7sj2Tjebfl3mjnrvKHPHgeZCcBw/1W2R+GwiEpphQcqBJrRn4ifz1bU8/SFf4yLCwTajvk4mG933rbUhMxCyjhrjf36T2RRItOlis77VkveeKpZuW6dUDKz3jvnKBJfD33UBxW4H2f4e/n3jn0REwjoGhsxflX5r2D+I3dBkXCAzPQAAAABJRU5ErkJggg=='
     },
     walkRight2: {
-        x: 107,
-        y: 42,
         width: 16,
         height: 23,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAXCAYAAAAC9s/ZAAABj0lEQVR42o1UoXKDQBB9xyAqI6lEnlxccGSmgsjkM+KiK1sb18+gshHMBJe6O7kSWWRlHRXMXg64hq67W97bt++WVQgEJboP3duO1fQu9gG2Y0WJ7nOkNzKiAWwtkKCfEilKdG8KDQDIGoaABThTYS2uaB1JLImPz2/8J4gIsAAS9LZjFduOVdYM0paqhyL2e7+iHQgwJ9gkrwCA9Dics6eh7UhMrEqGqRlVyXiz7zPw/qwdUMAAEAmYmw3a01BBSKy1IyLJ+aFEwcvDIwBAFxekR4yqSO7552s2FxElujc1QxeXUVIqCRgATKFhCj26i3x5SxF66mgJJLK36xW269XfBO3pPknWcDA3M9E3qip5ZqgpNLKG3Si7ZxRwjhQH2iFHiv1ZO2UypVMlavr7HmjnkjJQcjf9kRyBvwdypCAi9/HSXlD3lomQiZoD7Zwq58EUXJW3neC3YuphvMUjKaSmlX2wtFCVjP1ZzxQFTfRJfA98sO9PFFqWV7QjsKnZnX2w7Vip/2xkmRPZCX7RX/h93PRAPh11AAAAAElFTkSuQmCC'
     },
     walkRight3: {
-        x: 140,
-        y: 43,
         width: 16,
         height: 22,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAWCAYAAADJqhx8AAABj0lEQVR42pWUoXPCMBjFf+EQyMkiKyNTN1y5Q7C7GfgTJnHMIplkjj+DSRDcDTdcIyMrqUTiOlES2jTHxnfXuzbte3l97/siCJSKZBla14UR/lo3BBoQ38iUqsBaQ0TpEwkLzlIJQHIwDIgdsKVCa37IHUmXB0spBRqIKHVhRNdKSg6VvHu7h6ql4IccRZhgGH0A8LaHZFT9csd5sDdke8NmbFjrryB4urv6dAUDdFQky83YsH0dkn9CPMeRaK1bRPZ9MIXt8YxMv4nnzV2WvT4Ai8up1RcdKz/vNWXbXSwYIEslWSoba526NJl+Yw5D9+zX9nj+OwXfJCt72evz8vzU+tYpyD9hupMsLic24yqRei0up7ACXRiRjGSjiVY7zTtb/NlYXHI4VmS2lV2M9cFRSrnM/c70kxD1SbQf24Hxwf4gOYJ7Z8C90oURrpXr3WVrpibuApyxA2JmaoKKZOlSWO1eGgdJ/X6tv9iMDclINn4z6IGdyFD5Hj3kQba/KbBgXRgh/nugWo9svDaJX3TfzZjLJgbWAAAAAElFTkSuQmCC'
     },
     walkRight5: {
-        x: 239,
-        y: 43,
         width: 16,
         height: 22,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAWCAYAAADJqhx8AAABh0lEQVR42pWUoZLCMBCGv3QQyJOprIwM7nAwg4CZM8djnOMsEuTxJmepYAYcOCIjK0EicT1RElKawtzOdJrsZnf/3X8TQUS0VGVMb85WPOo6Mac+2T2Y1pWzMSApHwOJNmfn2EBhDHsKH6QTGsPMbaK1BgNISnO2IonV1pY9JjUEe4oGiqFc+nU2u+t7I3UPoKUqjxt7MwCmQjGUS6a54ndsmeYK8iYCX0JvpChWcNzYqknG1DL/jm17CVqqctFNsbuUbLYFYNK9Ms0Vi27K+iO9HT/FEQCowbZhXHRTv568v3EcKI4DVdMnYf0Axar6z68n5td7xvXhwvpwec5CTMIgAPNdfZ+4Bj4T18A+GV/6s0a174HdDWmbSse/G7Bw0DyN8+up0UiXzSF01IYU1y6TG5g+WS2Lu0Cxqy0cC8WKatr+KYmjzjk/Nsx9fTJvCxuZAPzkE6+c5qoxzsYYvsdrX14oQktVhjXH6o0x4850zNkKJCWm/mC0BQmdzdkK8eohffW4/gGdV7r5dAGLnwAAAABJRU5ErkJggg=='
     },
     walkUp0: {
-        x: 9,
-        y: 74,
         width: 14,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAYCAYAAADKx8xXAAABkklEQVR42pWUoVLDQBCGv8v0AZCRnDx5dY1rZxBlBtM+QTUuogaegTfgEYqDutYFx4mKcz1JZCXuEOmll0sYYFXy3327m83uChLTufIMmKmtiN9HKVAgqXB8TBUA472lQEKOjx1kASqQ3OtF6/Ht/dSJeK8XFMg2gAiQ1vqSljFUOEIG4cwYA0CFu6Ta+U6t0ehBPcA9MI4WLM2oA8bAZm6RZaO7J1huoTKuKVIKVrgeACBL+Cht6yDAoxRyT2D3M24nV011706o6Q5ZwgbLchtFHILC77idXPG2nwExrPrFCZCa7pqIZ0cuuZelYAwBqOmu1wwAmamtWG5V70CWtIWKbblVmNqKNuL4RvGbde7oXPnjCu8PeJ0rr3PlX69n/rjCH1f41+tZq/tDo+lc+RHArn6ANcALBZLHLwdt+p/txDyvH87ay3Cvxh3yk4mh4U3BtHdNbYX4y/QPbYHsJ8jUVqTrIr7T2QCh/cKkB30zt5fxOsNZeAjzNvTTgxbu6Fz5XnE286aJY0u1XnH+sx6/Ad95zsZS3ogEAAAAAElFTkSuQmCC'
     },
     walkUp1: {
-        x: 75,
-        y: 74,
         width: 14,
         height: 24,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAYCAYAAADKx8xXAAABeElEQVR42qWUsW7CMBCGP0d5AMaMzejRbLAlUocidSFPwMzGg7DxGLABQyXY0g0PDN7wmpE3cIfUqUmsFqk3Oef77s5/zhb0TGXSETHdGBF+p31gSk6N5VJIAMZnw5QcMlyYIPXQlBylFFprAA6f94eKSzVv9zKcbowQIdS1pTU1Ft9BbC+NnUcphULxmw3AsJq3ftUBuNE7ALZvhnzV+uwaqiPU2rJU8y62O2ONHQBAL4HsVE+BB8iuwZxLZpNRq+77HVmcyFewxVAdg1ZjkP8ds8mIw7kEQlgOxfGQLE5txe9EtheX9MEQApDFaTAMAIlujKiOcrCRr36ECa06SnRjRFdx/Cr5yx5iVCbdbYFzV5zKpFOZdPuX0t0WuNsCt38pO7+7tj6VSSdUJp0f4HogAdEJ2ujdUNXYeMWSitjlDeEYpBsjxDO3P/YKJM9C/ZgkfAH8+Pm1b/vyYbpXwMNJmCUEYqKFlRPfd43tRAjFCH3+vv5LnC/VmdRLkE3HiAAAAABJRU5ErkJggg=='
     },
     walkUp2: {
-        x: 108,
-        y: 75,
         width: 14,
         height: 23,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAXCAYAAAA7kX6CAAABcUlEQVR42o2UrZLCMBDH/+n0AU7WRkYGd3XtDAJmzpTHwJVnuHOH4zFAUsEMOHCsjKytRJ7ric6mm7Zwt6bTzf72O1EYiE1Miwmhxin5H08B98wAAGYXhxS6UyZopYOYoRQa1lrs6IDj7dFnYG33hQURAQlaapxSEmLZ0QEAsLZFmC4RAOCKuk9VyhCQ0RkegUSEK2r/zzXKjAKQgf3CYSMMVhUbYBpkSJehwb10XYfnfXQAUDwGCR0/cm9gsrPXz+YGKTSuqBFJqN4C+Aobo38K7+h+cr7+aGR0e8BkZ5js3EW/PbB8f+ucCglAhmSarB9KNDUvXWLUpOHeRtQ4taoMXgk3aDbv7SKbmHZtC690lxz1tmuUu+QBNBoHrxjv6CvhccRyeflguPD7hcOwnJgap/iu8QaBwt3UJYCqP6fGKfXX7V/bAnnyie9q6e+rBxlIobFZHIO0ZENkxEhCz4yn3iX16oEaOuI9/VeNz166XyietEPwUZThAAAAAElFTkSuQmCC'
     },
     walkUp3: {
-        x: 140,
-        y: 76,
         width: 15,
         height: 22,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAWCAYAAAAfD8YZAAABcElEQVR42pWULXfCMBSGn3AqJpGdjKwMjrpyDqLI8jOYqp6cntp+BkgQOwdccURG1lbyD5iApJeWj+11afJ+9N6bKDowcXLiDmzjlFxHt4iHLAFgtHMApOjzgZiTFIkkMUVTUbPeH4PgwhStOAZrLcScbONUJInGGAyGd7vqESVSNMScolub90gAxlzcu/8MYK2lou47XYh3C/ZtVyxzx1fZfqs/Yb7xytdGSlZ5mTt0eSZ46FKKJCFFRd2SJdHtJgAk2bYnMpqeBSpqBjKGJM7GQ9xuEtY+zeHHhZoMuspJtiXJtqz3R2bjYRCRAh6BPJomQUSXBIFHGPgBSdHMN0nvwCOBSPavsnWI5qNK6LJNCKDkaMoB+Xh5DTXoJvLVVs+uoccyd0HkqlW2cUre1RTNwhRhxhemCN1YmIKKGts4NbjlUlGH4fd4m87aey3H81n0LunKWRJTNMvc9Qi3nqs/OUt33w3bOKX+8wB2H8FfO7ur+BAfa5QAAAAASUVORK5CYII='
     },
     death0: {
-        x: 239,
-        y: 175,
         width: 16,
         height: 22,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAWCAYAAADJqhx8AAABfUlEQVR42oWULXfCMBiFn3AqJic7GRkZ3OrgHMQ4ZwZ+BlPVyGnU/gYWxM4B1zkiIyOpROI6AQkpTeGq5uPe9+b9qADQuWq4wtRWxOsY92emtiLTuWoKJAAVDr+ucBxGCoDh3lIgIacB8PfJaQZercJRIFnoWYi4+Tux+TuF9ULP8OIewVKBRGt9s2tMuPjoLKMHWms0mmfIUkmLI3jcuwhJ7COuPyyyvOy7Fcy3UBl3S6B3EC8qXIcIIEs4lDYIxSJZiuxWYPdjpu+vl2p8nlCjHbKENZb5NuEgRfYlnL6/stmPgVhE9VfBk9Vod3FwFXSJu4OUQEwGUKNdq6E6Aqa2wluKIUtCQmPMtwpTW9FyYGorhhP1tHGGkxsZQLS6L2qo75e38Ay7H7M8H0Og3j6Iu255dhCedewMUSeJOleNn8Sf302YygLZIt+3fZaK/jWR+LavksXrKaMxJvndmdTIxSBlK+Vq/WFbM+A54n4j/r09gq+GeGTvEdHjH7yMv10HhrOYAAAAAElFTkSuQmCC'
     },
     death1: {
-        x: 470,
-        y: 175,
         width: 16,
         height: 22,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAWCAYAAADJqhx8AAABjUlEQVR42p2ULW/DMBCGn0QBhYUda6ChxxbWSAPLNNKgweEOFe837J8UtgGTWpayGgyY1WMrHCzzQObWSVxt2klRTme/9/X6LiIgciRsyK4OOurakhAwI6XGsJsIAK43mowURtiuo8QHZ6RIKVFKAbDafrWizeS0ORthnZN2BlKe/wpejgaXkX9WK9MuwUXvOpPIUCtO5aiDjpJgs5SixvRALouLTfSBiztNOm/s5hXKCmpl6GYaASzHuV0dB9SYHhDoOBJkpBSDI/cf63MJPti8gt7kFDfDho2HL8RkTTqHBZqygoKrNv/7J6x9x+6fsMtxbu3j1C7HeUv377g3k5wZ0CeHxc2Q1baJCrD6ycYEmIhDLPhgADFZ9x6Vk9hxXlaid5jOzw30pazEidJWBte3gt+keycKTd/iTqM3+amMshLs3nQPrA46ip3iPgeAhsqyEszktDVQ/kQmoZmXI2Ffjp8t+/NtQXapib8tEzfeXb23D/iHxP8FO0x8adf54o+20x0m+utCvbRYvwEe6M6uyA/L8wAAAABJRU5ErkJggg=='
     },
     death2: {
-        x: 536,
-        y: 176,
         width: 16,
         height: 21,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAVCAYAAABPPm7SAAABb0lEQVR42o2UIZPCMBCFv3QQSCTIyMjgwJUZBMxg2p9R17Mn0bj7GZxhhjpwPUdkZeQhkec4UVLSEo57qrOb97LdvF1BAHqorqG4OVeiG4u6RD1U1ykSgHV/xClWAEyRTT4o4IiZTlo37L8uzXemk0bIxYRP1lrfyzWGEnu/PZAz50r0eAKtNRrNKwQF/NsdulUEBXzidlEh8zpuN5AWUBqLa3BQoMQ+EAFkDqe8aoR8kV6IbDdQHWcsJ4P6JVYXVHxA5rClIi0CFYTI7gmXkwH74wzwRdTzJjqyig91BTdBGzgbhWzrkwFUfGgZyjdf5BzmSvIhc5qG+kgL1Tg28m06nquXxhnPVcvu4tn0rfsjlrtbD1Yz3n++g9Mpuv/k1D/MZ+uwH/fHWnSnscQGbetc6s44kQcnArwt9qRF+9G2i4qyUA8zEvk9yHRCphNk3rbrFInM73mfE3VXlTGmmQEfdlPnuutN/GcX/rUbfwEjELpZrMKARgAAAABJRU5ErkJggg=='
     },
     death3: {
-        x: 105,
-        y: 206,
         width: 20,
         height: 23,
         data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAXCAYAAAALHW+jAAABpElEQVR42q2Vr1rDMBTFf9lXUYkscnLy4tgjTO4VkPUYJsEgcJO8wiQWV+QViMrKVSLrgtgSbrJu419M2iT3fPeee07iODKkmnlODO1bN7ZeHAOaM0VEuHl8SPafb+9QVajwp4ATwLpaeP+Ol2oWZ/vt3/F1tfBjVRQ52Jwpi3KIa90To9+LcoBhChXeZulywPvyktWwBeC+vNwFX1/w8vYBEPfC/mrYJmVP8pRtwMtQJv+rYcuc6ejZg5Klmvlalqx1E4NEBEG4et0AUMty3+Ld1NCxj4llTyx3AUxEaOgAWOsG7VunfevWuolAIkISs2+Qy6USgLRvnVQzn8sirB2LiRyGzGJZRzRm12pZxkwPmiIiSYmcGZaCEAtQBP7+OubsNJnI5rvZjWUZhZ3b5yeAY5dIYRuyz9J/FzRoF0BVaeiYaN+60PbYuTNXVw4WtJnIRlV/3eUQm1ivoQMlWukUn6GCWpax1APAqHj98mwObIEsb9YtRSJs/crUuiYAJy4yYCJCo116HwaS7cHcBZYvC2Z5d+ceptxFlq8x7br/fvU+Af65JJ4LToNfAAAAAElFTkSuQmCC'
     }
 };
 /* ───────────── Bomb and explosion sprites ───────────── */
-const BOMBERMAN_EXPLOSION_SPRITES = {
+const EXPLOSION_SPRITES = {
     bombs: {
         fuse0: {
-            x: 0,
-            y: 0,
             width: 16,
             height: 16,
             data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABSUlEQVR42qWTLU/DQBjH/y0VfIEm9wVIOMdhIHWbrEMRJqmYaLIEvWUJScMHIAyHxdWQgCzuMkwrIDkxUdmGIOpGgjjEdtfXEQY/dS/P/3n+9/IY6IARJrvWkzwxqjHhyS6MTiFxQCkFAAghVps5ryWbTV3Q/Qg7NTFx4J4PceoN8flVoHgvYNs2Pt4e4I4C7B31sXiJMJu6yBYFvMu0FLMDX46vHmWWxTLLYhlGSzk4u5GMML3OCJP8dizDC18qt5ZyoCwr4nmkx4fHfXABTO45/IFTizOVdQUXFFxQpK9pK1k8j+COAtCep51b1eorUVSrQHsenq4nAAIdI57vAOIAOS+PoKhW1hBnnaScKyz1VM07UOhnJE7nvtkK7BL/gLWtoOUgyROj+ct+Rc6R5Ilh4p+Yukm2cbGuDmBzM20SNrvS+Gs7K74B0DebyxOmawAAAAAASUVORK5CYII='
-        },
-        fuse1: {
-            x: 17,
-            y: 0,
-            width: 15,
-            height: 16,
-            data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAQCAYAAADJViUEAAABMElEQVR42qWToVMCQRTGf3vDH6DtjMZrLglpEK9rsDlEHGbMx5gY/gBGbY7NRoSIbSGxwbDBQGQjzfgMcMfCMaPiV3b37X7ve/O9fXAE5rVLAVCHLnWsJTxbb1VIPNGwslA5SIrr26A3pWSnV2uy2iHGdZIkAcA5B96QdnoAjAddnh5Slp8rzqdzqrOpKoj6oi1ZfyTDyZdk/ZHoWEvWH8lyORcdazHPmQzv2xJWUZSdXqfc3Z4BDmgyHkC11sQ46L4Z2jf1kjeRjrUkjdaum7NJaU07PfJ3uXqhvPhY8Pi63SeNFuNBF+gVMff+sjbTGwDUvlEhctMK5F3wBuutqoQPwwTOOUpt20OlpPQHRNZbtVPaT9iUDBDxD0TF3/2NeqBaGoyDf3tD2h+Qo6YqxDeExZNgQsVqAgAAAABJRU5ErkJggg=='
-        },
-        fuse2: {
-            x: 33,
-            y: 0,
-            width: 14,
-            height: 16,
-            data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAQCAYAAAAmlE46AAABJ0lEQVR42p2SoU/DQBjFf236D+BO4yoQh2J1m5xHMDtFmixBb0Et+wOWAYI0OAxpUJvsXEGtAnGCZJOtxIH7EF27NXQs22fuu8u997539+DAWl43BMA5FHRyCUsaUgvUSkvRJ1li1d1xagHKyw+yuEKSnbXgJeL04c1ytkFus1uSmHlAuzcEYDYecHfbJv38wn/9qSp1ribSH00ljL5FKy390VTSdCFaaYnv+xLe+LKtXhn1/KKF55qyjw0MnmP8jvfHo62VltITMHlKAVi8R+Xa7g0pbBSqFcXwMQDAbXaZjQdA7nH1scLMg/zRsrg6qjEG13U3LMpbgzf7nd9hjKkaUd7OMNhJlliF/N7K4jIQNkeWXcZqn+qWGoD1b+TWgLrMWseG/BdvqH5WjjsArAAAAABJRU5ErkJggg=='
-        },
-        blastCenter: {
-            x: 48,
-            y: 0,
-            width: 16,
-            height: 16,
-            data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABX0lEQVR42o2TIXODQBCFPzIRF9e4q2skouIsLvwDJhOD6zBV6S/oZKL6CzJFMnWYDFOHJC5TVUQEkkpcLI4KOCBNyPSpY3ff27d3i6GkqmiQFqkBoGNJKDjtYPFZXs0DjADiNCAJBUqqSicjR1CaPtMlBA8CTVRSVUkoiNOgExDZCtstQVqYcw+A6ZIWd6o5SAukhe2WiGwFQGdJWpimyexxBkC8XZ+PIC3OUBxIi9QY629Nfnm6byJv2O666zyAse5+DebcI8uy60xpoaAa92P5Mef9ozv/ByN90J3yY96SB7s3IwOcOcj2wc159eX1a0b9ROSIuuAGWddk+2YP0iI1dGKy8UnCAZHiQBLWNZEj2s1sHUw2PiJbcdoNGzjt6qWbbPw2ZujVzF/B+ylvv3vjLHIE0yXYblkL9N/21o0vnj2+vxLi7bpz0C9sxRohTeyvd/+vvBC4EPqDPlHjF21il6TcejMoAAAAAElFTkSuQmCC'
-        },
-        lit0: {
-            x: 0,
-            y: 18,
-            width: 16,
-            height: 18,
-            data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAASCAYAAABSO15qAAABPElEQVR42qWTIW/DMBCFv1QDgRsLTKHBgIuqsBSWViOl5v0BU2C0HzAeWjJNZYMr84YaMBDYwfyEsA60tnKJV9Inmdzde+d79sGNiEJBnehTKF639ah+MiTqRJ+WmxKAKo2p0hiA5ab0+aCAS6jcMJsvALjX5wMwmy9QuRndcOICrtP0cQpAsbWsdh2rXUextSJXpbEXiYRikkFrPSFTDQC2UQCU68zXOE8inegTSSadaS3LTelHOXx/8vFaEKoTAkopmn1FlcaY307UupjKDU3TeIG74bOo3GD2FcXWihHMOvMmin/gDDTdDKWUMKs/AsDx5wgwvsH0Bd7fDqy+zmO4QpDEECYAx2d4eEKqX4hDcj8vntEb1zN0CEFuLXVbR97EPjnU6eoIoSW5ikv30TaKH/kPcdjw5nW+GX8GK5onNZQU+wAAAABJRU5ErkJggg=='
-        },
-        lit1: {
-            x: 16,
-            y: 18,
-            width: 16,
-            height: 18,
-            data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAASCAYAAABSO15qAAABKUlEQVR42sWToXLDMAyGP+cKAgcDU2gw4KJeWApDy0rN8wSBeYLx0NCywZb5ihYwENjBPEJYBrb4bCdbwcD+OwNLv35LsiRYgUrUtGbvhk6EtigMVImairIGoEljmjQGoChr618VmB0y1+z2BwCe1NcB2O0PyFwvMoxmw/zS9nkLQNUajueR43mkao3na9LYighPMclgMDYgkz0AppcA1KfMcuaeCJWoiSTzOzMYirK2pbzdLry+VKzxPAEpJf21oUlj9MfocWebzDV931uBTfgtMtfoa0PVGq8EfcpsE10sMnCb5ZYAcH+/A/yegUuES3Bfwhskq+wIhcEhJ+qGTszfskb4MXgwdEMnNg+JDxDZJXGyeIjv1+0kLrYwHBgnMNxK8dd1/n98As/PkpwJ3lD2AAAAAElFTkSuQmCC'
-        },
-        lit2: {
-            x: 32,
-            y: 18,
-            width: 16,
-            height: 18,
-            data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAASCAYAAABSO15qAAABRElEQVR42qWTrW7DMBSFv1QDgSsLTKHBgIu6sBSWViWl5n2AKTBPMG5aNpUNtswaasCAYQvzCGEdqGzFrsGkXsnA9+f4nutz4UnLUk5ZyFvK3/XdQ/4kLpSFvK12LQC6zNFlDsBq1/p4EsAFRK2YL5YAvMr7AZgvlohaPXQ4cQ730uxtBkCzN6wPA+vDQLM3QUyXuQfJAsSigt74gkpYAIwVALTbyue4mWSykDeKKpxMb1jtWk/l/HPk+7MhlRcACCGwJ40uc9R1CHKdT9QKa60HeIm/RdQKddI0exNQUNvKDzHQQdzBeFhjCgCX3wsA1lp0fkZdh8cOxolwjO734q/3M9MNsI2E5LmNgOJigOkGLh8jKcc/4agkwXvjB9r1XZakEHcSWFGhriaUctd3mRPHf80tVpbcwlgwI+HEW/n0Oj9tfwQvmoxZnLupAAAAAElFTkSuQmCC'
-        },
-        lit3: {
-            x: 48,
-            y: 18,
-            width: 16,
-            height: 18,
-            data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAASCAYAAABSO15qAAABSklEQVR42sWTr1PDMBTHP+UQlZO1lRETQXF1q8TOVTLPH8BNTiO4Qw5ZwzEJrrgcahGIyNk6KuuKyCU0WTck7y53yTff9837kQf/bckUKDM5LPs0wF7THt3q5KyAzOQAsOxTxAzKZ4s3t2A6KwIEQhexs1isvOD3i13O3J3jegGZyaGpbcj5PEfsGkwH+t0u04HYNeTz3EZUp14kCRSzAlrFulYAFMIAoIwAYFMVnuNSSWQmB7IirEyruLnbcHVdArD/bHh7XDPFCwSEEJiPLU2dUlZ9wHWYWKwwxniBy7gtYrGirLasaxWkUFZFUGDfxjgCV0ggSAHg8HUAOB/BmAhNdD62i/HBK4+EYueY89vGqMIunVOOtArd6mQyBVrF08M+gMqqP24j2BroVicSgigO9zCTdt9pJl8/OUzj3+Yt+oF/jvMUPjXOP567nnBaLj2vAAAAAElFTkSuQmCC'
         }
     },
-    crosses: {
-        thinLeft: {
-            x: 3,
-            y: 43,
-            width: 73,
-            height: 73,
-            data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEkAAABJCAYAAABxcwvcAAADCklEQVR42u1cO3KDMBBdMRQuXULnNjdw60twCZ8nkzv4ErQ+RjooKd05RSwiLbsSv4zWo2UmYxuMhB5vn5anjQ0I2rrz4QkAUF2O0LcDAADU94dJfV2FRIDcV7vfvmYNkseYpv79447nCpLLHu5ztiBNwgkxSEFaGEapdKkAwZud4Sw4qXSplAZK5Yq3hltkdhMys4kBydOaAIOy1qT6/jAUADgFSMWoQhKLRlBunRgWyUwBbh0Zcil1qZSiSdXl6INz68YUQDNuLoxegGXvAnTnw9MDgdCi1HqUHKTJrEZo0QTInEAi2eEy6fWeSw+yAAmzwxNpFHbZZ9wkACjsstakuYPPmknu4KW4kPL9JIGupOhwk5Jtiwo3iVokLtz6dtCMOzRwjjGpvW1xySREDDe1b61VInQrxfrbTQ0VAHQwPLNd5l6jN9ktBFhwggNvak+b/tMRCLVbzFqfDzQS+k5sQLjcZg3z1vRPnRNq11DmFj7RHqNeQ2YaPp+68BEgq0c2V0J+N87Ct/Q/i8XO+M0eMe8yYcnjBAsQJeTOMdzH2v45FuObYdi1L+KEYFg0NZsx47aqr48paygGAUDM/17TPzkW3K/D3pK9q3Z/6Gkdr5HhC421hS/Mfj5dAb4/4w7Blv5jjoPTlvHEcy+rgllgZI+5+07Xv/0WqFB7e/TPMNYyr/QEkBtAjNqUdjDU79sBqj1uxpb+KQl4RRLWtIkmuV/kTpozZcfEc2Ste1Mwm9xws8diurSjF+WmBLOmc5wGrF1Xw1OvB/YCwZ4LQqx/Kl2gNkMtBHIncce3PmJwk0Zo2t/aPxALn9y4za7L1CtWXEkHAOVNOG/Zs/85mxFbVYIqS7J2AXZ7GM7RmaTqk7QcUOuTtD5J65O0Pknrk7Q+SeuTtD4JtPQGtD5J65O0Pgm0Pknrk7Q+SeuTdHYjbdu+HVS45zy8phbst/iFCWWSIKa8VzIp7L+4ZSaTAl1J2QsBqklTILSOGxZaJU4Nt4Yb94CLBFztW6w9kSKJFJsBYT+hKFG4fwC/z62Ejpy1NAAAAABJRU5ErkJggg=='
-        },
-        thinRight: {
-            x: 83,
-            y: 44,
-            width: 73,
-            height: 72,
-            data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEkAAABICAYAAAC6L9h5AAADs0lEQVR42u1crY4bMRAebwMCWqkwUckVFx0L7UvkJY5XqlRYVB7WJ8hLhB47dCoN27AGBIRtwcaXudkZ2+uk57nzrLTK/sQeezI/n8ef4kDJ0S6mHQDA7OtHAADYbfYAADC/P7rSY2u0KAcrCF/j9/j6JQ+nzoqW8/OLdavCohot7oatCG7u+Oc1Kgm7j7cYTlFSm5c6JiWVJLrQdsUqZ35/dCXcTo274TgE67a3JByfas5urEUxyqk6cA9izHIuxqNSManRYEXsxLer3u0UWFSjyor88esHcFmvFJhs1GW3dXuOSSQ2lYpLTkNMegKMOB4hdyuNup2qdRuX8k9LkyqzmweHA1dThraLKonNaoH0zyr1LSsp2SIQBBChwltVUtQiFGEkXRCABm0miFcXk6SKJGxX57ikBCdNNFjRbrOHmb/59lNdYUJXqURJaUSlu6VktyqV5N3tye0EKyqNtnXWk8zdEjETqnFXv1vCxh+8CXBywdLWps/d/CaAuVvg8DiJKKqkNTXXtIQxE2kX046SJHKCfI78WD/0vsnJOP49/qTPYoLFwLxdnc+IcnPl42QhPfP37WLauVDNBnfg34UmisusVBC+HigohLRJCRcCPIKx8lOzr8vxezooag2xCe02++dtvJJowPbWJCDvq8ln+sN9sBYSjRHL+XDgfqLSUkKyFrw7QhWFXc73K8kZI5/KpO3Q/HabPTiOZTboMGfxybXDOyHcwaV+bE1jxpAjX9iEcOy2jjRw3zkVJrlJoKgf7FOypth4xshPaXtS0oQ1SWkgN3fn+xQh0uBivyhVVO4kQ317y+S+T5KFE6l4sYnEzB+/TzFzyTr9pGjbS+VH4hLOlM/djXO1SIaRNhST3odcm/7y0jgukR/ImBhKOJHYSTrCjUPpM5Yh2fQbym4pP9RI+VyaD1UnBhAg1jinDILhBZWVnDkTQOVY+Rzw5EB1EExSxEo/uQHkktvHou5L5UsrjGAfOYvHS57hNVf3fdZ1D7f9+fd3fz7c9s9PJ16fXUs+aGaVUEscQ70pwQnQuc39n9oaP8n4ScZPMn6S8ZOMn2T8JOMngfGTjJ9k/CTjJxk/yfhJxk8C4ycZP+lNZbd12+MkVPivOnCP2RCo2t2CazdSATB3MwiQUS5hkPar5kxeHQIwrleyKgkA8E5D+n//edo/eDwAfPrTX3/5APB4gMP2WPeyxE/+WtvqdZVKFHG49a3d8NJEUfB2GvbdJNK7ln8IdKDsLxQlZF5SUf8AnXRX3gaekrMAAAAASUVORK5CYII='
-        },
-        fullLeft: {
-            x: 0,
-            y: 121,
-            width: 78,
-            height: 77,
-            data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAE4AAABNCAYAAAAIPlKzAAAEcElEQVR42u1cvW7bQAymBA0ePcqbHiHt5DUv4RfIVGQvEKBP0N1b/QJ5iayZ0m5dvclbNWa7DjZtiuL96JxYNMwDBEuyJEqfyPtIHnUAilq7nDlpXdqeuhWgrIUAWry+F+1y5hav7wUei+s3CxwFrL6f71dWC4Dn9vi7e+lgKqB4K7UAh4D0QBN+EeCpTbdUaZ4IVvN4WgioU5qoKuBEEJpHgPnDflHYSrWkQAHD9dWip3UGHGm7l25PCN1mqIExLb15csA+LtNtuUSr1Jrqdg3QgNpWqryr53a/bNfjCOWWTbXnkty9BZl1SnPVqXGrxYAMjpqoROvKa4hRodsEzdZMVQLsz9c9aEzbpjZVVUH+MU6l5or9G2rdIdg3U/X1cTx6UNaqqyEGGllYHxdoXNsO5NAzZ9M4D5My0ChB3LwDHGXGgBsyJatWKt0QdD94f7daq9G6SpMf10Lnas6s2N/xNJORg8CaNHXOSELLgI3ekCvgkmgYY1XHqvX9fKhpysxUf6zqYVcNpqo3Axzx4ww4Vt7g9d0IaBrGVSst2jYAgpLDdn1iWmPVBCc4gWHVAJdD9aHyrNH5OIwWPGDV93NolzPnk3kpV6UMvf1YjRq/YV6ClUoEufHqR8lPrc2j+wtff4MH+WrS+HGY7pHyZb2On7ycQWkXjRgiJMHlnCt/bJdS+ADLclwzEo+Dsq5Qfya4JXj9s+V7zuUvBMErJJWkD7P79jctecjLFsb4XBw0nsSUfDouI1c+npdwLQpez+TEt89vVKrrkLSEagc9hx/780cwqI+Cd658ib0xG8PlkKrQamCe/CEarON4BPgu3By9EfrQDfG/JE1CIPD/2LgpHe3C4zkIOfJ9wM8fAGDd729XC6gBoIXO9RjJPdXO/f7i3L9frtf4Nu6T9o9p9Bp8PXaOdJ+58ul1pHUq86l27XLmyigZ4JvJyVCknJNimlILmfUY+ZKmd5v+uYKcSmRSXmKFZsH7Gb5PGplqIGwmfLvbnPoY3J8Kbq78YNQiA1z42DRIBj4NGBsy8X4KtyWgfA+LcnLlA/gTCgF2LYJlCDGaDwHsE86P4f/7yAaB8znFufI9ft/gWwuWuo86wBRI6kzGfLvUEXexdDWmIQk+2meO+PeAk1I8HxEw+z4fEkO2EIDMn0wFJibfF0ZKGETTWSmA0cCXB8HSvlAwPXCH+ELdAeIS0OUc+Z+V8RmVJTknmeme6v7CfTsG3CVTSVxGmZNojG3DZ5Z6CWZ6iYwwl2H1cWD1cVYfZ/VxYPVxVh9n9XFWH2fkYPVxVh8HVh9n9XFWH2f1cVYfZ/VxVh931e7IMYBHs+Tf4x/2a3BH9M6t5BvtUsKq+kw1dRzXgIO0FJMiV0RnPg6zIsJMN1qyv+o0bgCMsikzrmeKoOdWnALNTDVQ4NwjCYWap3uKoLs30QHWME9meRXTA3ncl5tPnVMAdi8d1Di+0Og1VZUTKA8KHIXSB8uOsAwJDtoAANQKJ9xTq3Ghfo9/KjXl/f0HEAbTOzGUl5IAAAAASUVORK5CYII='
-        },
-        fullRight: {
-            x: 80,
-            y: 120,
-            width: 80,
-            height: 80,
-            data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAABQCAYAAACOEfKtAAAFRklEQVR42u1cP2vbUBA/OR48pKBRpos7li6ph9DVX8JfIEuD90CgQ+fuJkvzBbx3radCIJBkKVm92UOhGkLxEFAH6Umn0917shWaK7kHgUh+eu/p9O7f735SBMra+sMgc/8nk7j222aZAgDA8GobaVlvpEFgw6tt5ASXTGKA6ZDvvFiXQtQiyN5zLwALoSa80Qzg6Cb/G83yc9NhuSu17MK+NrUthRefiP2TSQxrSDMNguxpEGApBE5100uA1bw6Rn007MJIndOYDiuVpW01B1isVTkUNTawZv9W82rXxSeiOmvYgSpsYKNJNrDYfZpaT5UDkQTk7GCxQzfLVI0XVhXG1Gzd3TgXHHUitgM9DXth7EhGs4ZjaYQ+JkBoCo86EKTipsIhG0idCLKBySS2HUgzi1rjPDBK58wGtrGBnEClANviQCK8uzHvTBQ2PQJcrOtIDKfK6WWFygDAGtLsuZ2JCgFulmnTDmKBOSeisEVa4KxSgJwdxGrsBFmAqy8eTGiEI4t1Fc44UJWqMkGmzQtzDoUCCh6A1XLhkPAYPNBqIm13HudQbAcGGhUWPkZORkM6F2mqB3shfRTGbE7v1ajwgaaq3OGbAcDPB4Af3wFe3wPEx8iJHAOk1wAA8PDtl5U1vYACjgWxPRzlOzGZxABXG0vlgoCqJ3RxjAZzIoUtqwXGnA1UCu3r8sI4C8G7j3hlTUWlvsosRIr7RjOAL59UqXBfHZjgS90UBtMRfZL4uM1Tpv13TbOy8yTzVuSkeBABCl3m5wJyev8+mURtInoq4La1Dcrl424wO0+yBpAaEh4qQOE59pm/xktkrqNyoEKNuAGkRYhFILx7nBNw5xi2Qe2mL942hSeFL06F0S7sPL/vXsj1HLkzqqVQ7kaYJ926Gkav5yB7Oq4E4fsarpt0md8H4krjoEigXxuAsgHcAPR3PDDud3RTnJw3xzvja7x7CU9CqbvO7x4KlQNuZ0U2VNRk8h148bZ5I1hdpOReUru7sT+TcL+HvC5VX6nI1GV+7jp3Hs9J/1/NYXN6T8IYigCnl/JCRp6bD6Rh4iJ9zde3y/y+69qsKztPsuz312yvtu91XcbDfZ56/l3mvX2fZedJ1tspSFWKCsO/AHiFPLznrW45fh5Vo9Bkvj7096d+KLvOj887TuIO1/aSSVxxkumNOalzxlpaBHcN54A4Ie7jSJ5yfnoceLibZQoHHx8fPx/+eQR49ypHfbe3+V+5kOv8/GDMB7SDvnyNO++uxTfoxtze5se4n9S4Nbg59p3fnUuv8xjPIeFuvEG/PiaqDj6stlBlIi4jCPFVdqFa0LhRCl53jQXbYoNt56fZCs5iuCAbBdPNfHA6DEfpIca8sDgxhaKFpJAgXcArrWHX+T35b6hvJKEp0gBtKBWhtyzxAyuJRb4XbCi4yrxw02V+DoEJgSdlLiy9OSkNIgk71N8HI7HEIk6tPcLbd/42sJcbj+sbqWRm+fiBythZxg80fqDxA40fCMYPBOMHGj/QBAjGDzR+oPEDjR9o/EDjBxo/EIwfaPxA4wf+J8G0GhUubWAoE0FfcDMBSjmttNNILmw20EeiHOkXnrpUjq2PCOVULemcqh1YE17J9SOqLREfX7INrKEqDkzw2UHDAwNOxHF1JLKPIluo8/uBXGmT1IRNhSUscLGWhQf24R3R/m2WKSQUkeHUF3F3NKRzfQ32LwjNxydVXLiaq/qiuU5AlXt1oQ071nLhohWISy2IJnbQPsAohTGU1Ei/o4q8sFXl2lLdmFeszAtLr8wW38hPWr74+NztL787JmcVH37GAAAAAElFTkSuQmCC'
-        }
+    blast: {
+        center: [
+            {
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA4UlEQVR4nJWTMRLCIBBFFyaFpWXSmdLSjrHzErmEbY5hGcc7cIl0tl7BDktvEGcTlllgmcTfkADvswu7qjUDkJ7QTzjWlz1A10Ak6+AzfufPM9wUTWsO8oU1EaM5SJOiumaJzAsZ3K/F8DeejibKmV04NcCUv3XxP5uj+1BkUIRZCqkJqqofxxyQTi5ITa9TfnFoQPDhCvC+Fw30KszHNFLR4E/p4Mjzpm8KXUoB91gnvAKZSEpfBi+xNUNUgdlzCjDVwJKCr6isD3yIqTiMTMUX5/oe+0nsRgYXu3GL0sb7AY0rZ6H0/Kl6AAAAAElFTkSuQmCC'
+            },
+            {
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA40lEQVR4nJVTMQ7CMAx0LAZGxnYrIz+o2PhEP9G1z2AE8Yd8go13sIWRH4DsxpHjEgInVVEa3/nsOG7bn0Bwg+lFa3PYAAwtQDemM7ifAXyAx/XJ2z0cHa0oxIz8AyR+pX8uyJS1IuJCv84zk/USfOBFyiA4Esgyi4CuX7uJIgJsLruZZDOX7Ou4oZ2b+PHQOrD7GIt8IJ8NrrnoRuWgFFy5CeSASlAGM1zIXTWdTYK2NAsfVAlWyLqiPYmZ63R/DZJOFgcK5VGk6bLlfCETuISFiED3QJWoXyTKqxKRmgtNJu4bNDhsjAJJPuoAAAAASUVORK5CYII='
+            },
+            {
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA6ElEQVR4nI1TMRKCMBC8ZCgsKaXDXzB2foIPWNLa+AdLLf0An7DzHXRY8oM4F1zmcjlGdoYhhNu9vbC4Q3MnxpsuYX8qidqKqO4ow/CY7/1In9cUl0e6OQ9yzjDICswrQF66byByLVy4cN3P3UG27BtjAC4KaHJ5TonT03bVjxTPIIEm6z3psK3Ir566JQIh1Ncd+fjAL6SItPwH3rS8ReTX2IUQQlbMonJPNlG1RXbCW75EIjAYYUGxNZ6qd0kO5HwWrCCNzW49ylJIBQhR9vxH8SJuCOWFBOKKq5hEiCz2cDEJOTHAvC/Ks2ZmjZsORQAAAABJRU5ErkJggg=='
+            },
+            {
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA0UlEQVR4nJWTwRWCMAyG0z4G4Ig3V9ANXIIFPDqBg/SGC7CEI+gIveENNojvLy220NryXfJo8/8JkAi+N0ygPdDC8UZJtJpjP9DnOVEViP8JfbGludQk+HXijbi+xg2mx6YLYQycOCWM8T6bIHjseLfY60buFSzYgrK4OnLWJoB9xo6z+Dljx+WvkEBG29plAJxJ7lsgb5Ujg8scvnj5jToczyIghk4rEmaZsAslo+ywU4hRrrBRDR5a9TNJDE1w1w8mzNvoDmDiiO2Ha92KUfwLuFCLiprjDJwAAAAASUVORK5CYII='
+            }
+        ],
+        segment: [
+            {
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAnklEQVR4nGNUtJjCQAlgokg31Q04xlDyHxsbGx8GGJ9bcPy3YuhhxKUAJgeiYQYhsxlBBiBrkHAUgLNf7P9A0AuM/yslMG0Ok2RgWPUcr0aY4Yz/zxtCDABpAGlEBsiG4JBjhBuAC2AzGEmOEWwALpuI8AYj1jBAU4QPMKLHAi6AHtWwqGSEpQOYBEwRshg+wIScKGAa0cXwemHAcyMA0fpTGHx5ENQAAAAASUVORK5CYII='
+            },
+            {
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAyUlEQVR4nGNUtJjCQAlgQuYcYyj5j42N14BjUIXINLoYNgNhfCZ0SQlHATBGV2zF0MOIrBbEB7EZ/1dKgAVe7P8ANwAZwMSxAZBaxv/nDf8zrHqOKhMmCaHRxdHlGRigBhACMIOQNDIoZEMNeD8HYsCDqSgScAATxyYHj8YHRGjGBh5MRQoDZOdh8wJMHmYJ1HBGWCxg+BFZMx55RhQDcEQdetQiq2N8bsFBVJJFT0gwMbABuCSJMZgJWTOIDcPoBsIAuhgjpdkZAKAMboGGprwiAAAAAElFTkSuQmCC'
+            },
+            {
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA20lEQVR4nGNUtJjCcIyh5L8VQw8jAwMDCpsYwARjgDSiG4RLE7Ic43MLDjBHwlEALPBi/wcMDSBDkTUhW8KIbgA6wGYgMmD8XykBMTlMElVm1XO8GhEGnDf8z6CQjSnzYCrCIGTD0dQy/n8/BxFYAskImQ9zEYbANKHLgw34/x9naBMEH+YiohGXAkKABUURshNBAOQFBSxySHoYwYEIAugBCfM/NjkkNYxgA9BDGjka0cXR1DDC0wEaIJSA4F6ApURcAFcmg/HhsQCTRFaEnAfQMxlMjhE9O5MKALs5b2JBrTeQAAAAAElFTkSuQmCC'
+            },
+            {
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA5klEQVR4nGN8bsHx34qhh5GBgYHhGEPJfwYogIkRAowgA2AcCUcBFMkX+z8wIBuIzQLG/5US/xnCJBG6Vj2H0DAxGB+HwYz/zxvCTQUDhWwGhgdTMd0KMgiLRYz/38/5D9dgcA5CXzBCGIYNIFnAAlcokIyqCJsYHExFGP7//Zz/GACbGLo8VA0jiGCgADBRohm7AR/mQjAugCbPhCEJC2F8hoDUQOVZUBTCND+AhjJMDhYbyBbgTEgMSAAWVTBNyKkSmqggSRkdYEvaaEkYlm9QMhO6JLpG9FwLUgc3ADn7EputQeoAjl+lvfd2ynAAAAAASUVORK5CYII='
+            }
+        ],
+        end: [
+            {
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAkklEQVR4nGNUtJjCQAlgokg3LgOOMZT8J9qAY0iKYWwrhh5GYg1kgSmGKSLFdhBgfG7BAdcg4SiAoeDF/g9wNrrL4AZIoGsMk0Tlr3oONwzdEBawZnQN6AAkDzUEHbDg1YykCdkrqAaswlQE8xK6JpxhwEAAYNOIcAGaQlA04tOADphAipE1oKcLQoBxcGYmUgAA3+c5XtE+f2cAAAAASUVORK5CYII='
+            },
+            {
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAwUlEQVR4nGNUtJjCQAlgOsZQ8h9dEF0Mmxq4AVYMPYzoCtHFYHxsBjE+t+DAaTo6QDYYxQAJRwEMxS/2fwDTIDkYG5shLGDNYZKoulc9B2sEgzBJBgk0Q1EMYEDXDNWEwV/1HKu3WBgUshkYHkyF8EBsZAATxwNYYE4G24JNA9RmbM6HGPAAhy1IToZpxhoL/yslcEYjeugjpwmMaHyBw4m4bIYBJmxOBNEwjNNUmAHoCtGTLSFDGCnOjRTpZmBgAAAhQ1I1DprO7gAAAABJRU5ErkJggg=='
+            },
+            {
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA6ElEQVR4nGNUtJjCQAlggjGOMZT8x8ZG5qOLgwDjcwsODEFcwIqhhxHDgP+VEjgNeLH/A4OEowCcjc0Qxv/nDSEGrHqOEA2TRDUJKofNEBYUTQrZELZAMgPDh7kMDA+mohgogWQIKDxABjGCXQDTCAMgA0DgghHCUJhhq56DDYG5ggnFVphGGADJwcTQLYECJrjJyADkfBBGdxEWwIJVFNlQBSxiWGMBGcBiBE9swMKAET0dwEIZFv9gQ5CiGFkzySmRAQpABsCikQlmGjYaPdUhi8G9gCs3wmxAZ6MDeG7E5kx0J2NTBwB7YGzn02LE2QAAAABJRU5ErkJggg=='
+            },
+            {
+                width: 16,
+                height: 16,
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA/0lEQVR4nI2TMRKCQAxFswyFJSV2eASsGDsvwQUsbW28g6V2cgEuYWeLR7DDTm6wzl/Iml0W5c0wG0LyyWwStSrOdKeDJsGGTgon/LD5lD6OVW2xMMnpNrECr1sn9RxhX1TpY+r8ncqlm1W3QWGuQhkBPwlke6LnZewfBCHWV/C+9hUkO6LH+psMIMC2BP667SvSkibXEDQP4DNkN7nG/cWjslEJI+0JIudtRoIEnYtmRXZV+EKdCrqqv0Scv4S875H94AeG/B7oQuyUhx6XQ+vYn9FkG4FCO+S0GXiwjGBgyMQw2VGemn8g98SPtcs0tW3+pjJ2F7DO/2ARKcx8ABLLsb2vKrzPAAAAAElFTkSuQmCC'
+            }
+        ]
     }
 };
-const BOMBERMAN_SPRITE_SETS = {
-    player: BOMBERMAN_PLAYER_SPRITES,
+const SPRITE_SETS = {
+    player: PLAYER_SPRITES,
     plunderBomber: PLUNDER_BOMBER_SPRITES,
-    explosions: BOMBERMAN_EXPLOSION_SPRITES
+    explosions: EXPLOSION_SPRITES
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/bomberman/core/game.ts":
+/***/ "./src/bomberman/core/game.ts"
 /*!************************************!*\
   !*** ./src/bomberman/core/game.ts ***!
   \************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   Game: () => (/* binding */ Game)
+/* harmony export */   Game: () => (/* binding */ Game),
+/* harmony export */   GameEngine: () => (/* binding */ GameEngine)
 /* harmony export */ });
 /* harmony import */ var _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../shared/utils/utils */ "./src/shared/utils/utils.ts");
 /* harmony import */ var _renderers_svg__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../renderers/svg */ "./src/bomberman/renderers/svg.ts");
 /* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./constants */ "./src/bomberman/core/constants.ts");
 /* harmony import */ var _ai__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./ai */ "./src/bomberman/core/ai.ts");
-/* harmony import */ var _rules__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./rules */ "./src/bomberman/core/rules.ts");
+/* harmony import */ var _entities_item__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../entities/item */ "./src/bomberman/entities/item.ts");
+/* harmony import */ var _entities_player__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../entities/player */ "./src/bomberman/entities/player.ts");
+/* harmony import */ var _state__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./state */ "./src/bomberman/core/state.ts");
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -591,94 +882,130 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 
 
-const placePlayers = (store) => {
-    const playerOneStart = (0,_rules__WEBPACK_IMPORTED_MODULE_4__.findNearestEmptyCell)(store, { x: 0, y: 0 });
-    const playerTwoStart = (0,_rules__WEBPACK_IMPORTED_MODULE_4__.findNearestEmptyCell)(store, { x: _constants__WEBPACK_IMPORTED_MODULE_2__.GRID_WIDTH - 1, y: _constants__WEBPACK_IMPORTED_MODULE_2__.GRID_HEIGHT - 1 }, new Set([(0,_rules__WEBPACK_IMPORTED_MODULE_4__.positionKey)(playerOneStart)]));
-    store.players = [
-        createPlayer(1, 'Bomberman', playerOneStart, 'right', _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.player.idleDown.data),
-        createPlayer(2, 'Plunder Bomber', playerTwoStart, 'left', _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_SPRITE_SETS.plunderBomber.idleDown.data)
-    ];
-};
-const createPlayer = (id, name, position, direction, sprite) => (Object.assign(Object.assign({ id,
-    name }, position), { alive: true, direction, bombsPlaced: 0, cellsDestroyed: 0, sprite }));
-const pushSnapshot = (store) => {
-    store.gameHistory.push({
-        players: store.players.map((player) => (Object.assign({}, player))),
-        bombs: store.bombs.map((bomb) => (Object.assign({}, bomb))),
-        explosions: store.activeExplosions.map((explosion) => (Object.assign(Object.assign({}, explosion), { affectedCells: explosion.affectedCells.map((cell) => (Object.assign({}, cell))), hitPlayerIds: [...explosion.hitPlayerIds] })))
-    });
-};
-const updateGame = (store) => {
-    store.frameCount++;
-    (0,_rules__WEBPACK_IMPORTED_MODULE_4__.updateExplosions)(store);
-    (0,_rules__WEBPACK_IMPORTED_MODULE_4__.updateBombs)(store);
-    for (const player of store.players) {
-        if (!player.alive)
-            continue;
-        if ((0,_rules__WEBPACK_IMPORTED_MODULE_4__.canPlaceBomb)(store, player) && (0,_ai__WEBPACK_IMPORTED_MODULE_3__.shouldPlaceBomb)(store, player)) {
-            (0,_rules__WEBPACK_IMPORTED_MODULE_4__.placeBomb)(store, player);
-        }
-        (0,_ai__WEBPACK_IMPORTED_MODULE_3__.movePlayer)(store, player);
+
+class GameEngine {
+    constructor(store) {
+        this.store = store;
     }
-    pushSnapshot(store);
-};
-const appendDeathAnimationSnapshots = (store) => {
-    if (store.players.every((player) => player.alive))
-        return;
-    for (let frame = 1; frame < _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_DEATH_ANIMATION_FRAMES; frame++) {
-        (0,_rules__WEBPACK_IMPORTED_MODULE_4__.updateExplosions)(store);
-        pushSnapshot(store);
-    }
-};
-const resetGameState = (store) => {
-    store.frameCount = 0;
-    store.nextBombId = 0;
-    store.players = [];
-    store.bombs = [];
-    store.activeExplosions = [];
-    store.gameHistory = [];
-    store.cellEvents = [];
-    store.explosionEvents = [];
-};
-const stopGame = (store) => __awaiter(void 0, void 0, void 0, function* () {
-    clearInterval(store.gameInterval);
-});
-const startGame = (store) => __awaiter(void 0, void 0, void 0, function* () {
-    resetGameState(store);
-    store.grid = _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__.Utils.createGridFromData(store);
-    store.initialColors = store.grid.map((col) => col.map((cell) => cell.color));
-    placePlayers(store);
-    pushSnapshot(store);
-    while ((0,_rules__WEBPACK_IMPORTED_MODULE_4__.countRemainingContributions)(store) > 0 &&
-        store.players.filter((player) => player.alive).length > 1 &&
-        store.frameCount < _constants__WEBPACK_IMPORTED_MODULE_2__.BOMBERMAN_MAX_FRAMES) {
-        updateGame(store);
-    }
-    appendDeathAnimationSnapshots(store);
-    const svg = _renderers_svg__WEBPACK_IMPORTED_MODULE_1__.Renderer.generateAnimatedSVG(store);
-    store.config.svgCallback(svg);
-    if (store.config.gameStatsCallback) {
-        store.config.gameStatsCallback({
-            totalScore: store.cellEvents.length,
-            steps: store.frameCount,
-            ghostsEaten: 0
+    start() {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.resetState();
+            this.store.grid = _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__.Utils.createGridFromData(this.store);
+            (0,_entities_player__WEBPACK_IMPORTED_MODULE_5__.clearPlayerSpawnAreas)(this.store);
+            this.store.initialColors = this.store.grid.map((col) => col.map((cell) => cell.color));
+            _entities_item__WEBPACK_IMPORTED_MODULE_4__.Item.createHiddenItems(this.store);
+            (0,_entities_player__WEBPACK_IMPORTED_MODULE_5__.placePlayers)(this.store);
+            this.pushSnapshot();
+            while (this.alivePlayerCount() > 1 && this.store.frameCount < _constants__WEBPACK_IMPORTED_MODULE_2__.MAX_FRAMES) {
+                this.update();
+            }
+            this.appendDeathAnimationSnapshots();
+            this.finish();
         });
     }
-    store.config.gameOverCallback();
-});
+    stop() {
+        clearInterval(this.store.gameInterval);
+    }
+    pushSnapshot() {
+        this.store.gameHistory.push({
+            players: this.store.players.map((player) => (Object.assign({}, player))),
+            bombs: this.store.bombs.map((bomb) => (Object.assign({}, bomb))),
+            explosions: this.store.activeExplosions.map((explosion) => (Object.assign(Object.assign({}, explosion), { affectedCells: explosion.affectedCells.map((cell) => (Object.assign({}, cell))), hitPlayerIds: [...explosion.hitPlayerIds] }))),
+            items: this.store.items.map((item) => (Object.assign({}, item)))
+        });
+    }
+    update() {
+        this.store.frameCount++;
+        this.updateExplosions();
+        this.updateBombs();
+        this.killPlayersInActiveExplosions();
+        for (const player of this.store.players) {
+            if (!player.alive)
+                continue;
+            const ai = new _ai__WEBPACK_IMPORTED_MODULE_3__.AiController(this.store, player);
+            if (player.canPlaceBomb(this.store) && ai.shouldPlaceBomb()) {
+                player.placeBomb(this.store);
+            }
+            const moveCount = player.nextMoveCount();
+            for (let moveIndex = 0; moveIndex < moveCount && player.alive; moveIndex++) {
+                ai.movePlayer();
+                _entities_item__WEBPACK_IMPORTED_MODULE_4__.Item.collectVisibleAt(this.store, player);
+                this.killPlayersInActiveExplosions();
+            }
+        }
+        this.pushSnapshot();
+    }
+    updateExplosions() {
+        for (const explosion of this.store.activeExplosions) {
+            explosion.tick();
+        }
+        this.store.activeExplosions = this.store.activeExplosions.filter((explosion) => explosion.remainingFrames > 0);
+    }
+    updateBombs() {
+        for (const bomb of this.store.bombs) {
+            bomb.tick(this.store);
+        }
+        for (const bomb of [...this.store.bombs]) {
+            if (!bomb.exploded && bomb.timer <= 0)
+                bomb.explode(this.store);
+        }
+        this.store.bombs = this.store.bombs.filter((bomb) => !bomb.exploded);
+    }
+    killPlayersInActiveExplosions() {
+        for (const player of this.store.players) {
+            if (!player.alive)
+                continue;
+            for (const explosion of this.store.activeExplosions) {
+                if (!explosion.contains(player))
+                    continue;
+                player.kill();
+                explosion.markPlayerHit(player.id);
+                break;
+            }
+        }
+    }
+    appendDeathAnimationSnapshots() {
+        if (this.store.players.every((player) => player.alive))
+            return;
+        for (let frame = 1; frame < _constants__WEBPACK_IMPORTED_MODULE_2__.DEATH_ANIMATION_FRAMES; frame++) {
+            this.updateExplosions();
+            this.pushSnapshot();
+        }
+    }
+    resetState() {
+        _state__WEBPACK_IMPORTED_MODULE_6__.GameState.from(this.store).reset();
+    }
+    finish() {
+        const svg = _renderers_svg__WEBPACK_IMPORTED_MODULE_1__.Renderer.generateAnimatedSVG(this.store);
+        this.store.config.svgCallback(svg);
+        if (this.store.config.gameStatsCallback) {
+            this.store.config.gameStatsCallback({
+                totalScore: this.store.cellEvents.length,
+                steps: this.store.frameCount,
+                ghostsEaten: 0
+            });
+        }
+        this.store.config.gameOverCallback();
+    }
+    alivePlayerCount() {
+        return this.store.players.filter((player) => player.alive).length;
+    }
+}
+const stopGame = (store) => __awaiter(void 0, void 0, void 0, function* () { return new GameEngine(store).stop(); });
+const startGame = (store) => __awaiter(void 0, void 0, void 0, function* () { return new GameEngine(store).start(); });
 const Game = {
     startGame,
     stopGame
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/bomberman/core/pathfinding.ts":
+/***/ "./src/bomberman/core/pathfinding.ts"
 /*!*******************************************!*\
   !*** ./src/bomberman/core/pathfinding.ts ***!
   \*******************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -693,7 +1020,13 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   sortPathOptions: () => (/* binding */ sortPathOptions)
 /* harmony export */ });
 /* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./constants */ "./src/bomberman/core/constants.ts");
-/* harmony import */ var _rules__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./rules */ "./src/bomberman/core/rules.ts");
+/* harmony import */ var _entities_bomb__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../entities/bomb */ "./src/bomberman/entities/bomb.ts");
+/* harmony import */ var _entities_explosion__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../entities/explosion */ "./src/bomberman/entities/explosion.ts");
+/* harmony import */ var _entities_player__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../entities/player */ "./src/bomberman/entities/player.ts");
+/* harmony import */ var _board__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./board */ "./src/bomberman/core/board.ts");
+
+
+
 
 
 
@@ -704,37 +1037,65 @@ const getPreviousPlayerPosition = (store, playerId) => {
 };
 const isBacktrackingStep = (store, player, next) => {
     const previousPosition = getPreviousPlayerPosition(store, player.id);
-    return Boolean(previousPosition && (0,_rules__WEBPACK_IMPORTED_MODULE_1__.samePosition)(previousPosition, next));
+    return Boolean(previousPosition && (0,_board__WEBPACK_IMPORTED_MODULE_4__.samePosition)(previousPosition, next));
 };
 const sortPathOptions = (positions, options) => positions.sort((a, b) => {
-    const aBacktracks = options.avoidFirstStep && (0,_rules__WEBPACK_IMPORTED_MODULE_1__.samePosition)(a, options.avoidFirstStep) ? 1 : 0;
-    const bBacktracks = options.avoidFirstStep && (0,_rules__WEBPACK_IMPORTED_MODULE_1__.samePosition)(b, options.avoidFirstStep) ? 1 : 0;
+    const aBacktracks = options.avoidFirstStep && (0,_board__WEBPACK_IMPORTED_MODULE_4__.samePosition)(a, options.avoidFirstStep) ? 1 : 0;
+    const bBacktracks = options.avoidFirstStep && (0,_board__WEBPACK_IMPORTED_MODULE_4__.samePosition)(b, options.avoidFirstStep) ? 1 : 0;
     if (aBacktracks !== bBacktracks)
         return aBacktracks - bBacktracks;
-    if (options.target)
-        return (0,_rules__WEBPACK_IMPORTED_MODULE_1__.manhattan)(a, options.target) - (0,_rules__WEBPACK_IMPORTED_MODULE_1__.manhattan)(b, options.target);
+    if (options.target) {
+        const distanceDiff = (0,_board__WEBPACK_IMPORTED_MODULE_4__.manhattan)(a, options.target) - (0,_board__WEBPACK_IMPORTED_MODULE_4__.manhattan)(b, options.target);
+        if (distanceDiff !== 0)
+            return distanceDiff;
+        const axisDiff = routeAxisRank(a, options) - routeAxisRank(b, options);
+        if (axisDiff !== 0)
+            return axisDiff;
+        const sideDiff = attackSideRank(a, options) - attackSideRank(b, options);
+        if (sideDiff !== 0)
+            return sideDiff;
+    }
     return 0;
 });
+const routeAxisRank = (position, options) => {
+    if (!options.origin || !options.routePreference)
+        return 0;
+    const axis = position.x !== options.origin.x ? 'horizontal-first' : 'vertical-first';
+    return axis === options.routePreference ? 0 : 1;
+};
+const attackSideRank = (position, options) => {
+    if (!options.attackSide || !options.target)
+        return 0;
+    if (options.attackSide === 'left')
+        return position.x <= options.target.x ? 0 : 1;
+    return position.x >= options.target.x ? 0 : 1;
+};
 const findPathToTarget = (store, start, isTarget, options = {}) => {
     var _a;
-    const visited = new Set([(0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(start)]);
+    const visited = new Set([(0,_board__WEBPACK_IMPORTED_MODULE_4__.positionKey)(start)]);
     const queue = [
         { position: start, firstStep: null, distance: 0 }
     ];
-    while (queue.length > 0) {
-        const current = queue.shift();
-        if (!current)
-            break;
+    let queueHead = 0;
+    while (queueHead < queue.length) {
+        const current = queue[queueHead++];
         if (current.firstStep && isTarget(current.position)) {
             return {
                 firstStep: current.firstStep,
                 distance: current.distance
             };
         }
-        const nextPositions = sortPathOptions((0,_rules__WEBPACK_IMPORTED_MODULE_1__.getAdjacentPositions)(current.position), current.firstStep ? { target: options.target } : options);
+        const nextPositions = sortPathOptions((0,_board__WEBPACK_IMPORTED_MODULE_4__.getAdjacentPositions)(current.position), current.firstStep
+            ? {
+                attackSide: options.attackSide,
+                origin: current.position,
+                routePreference: options.routePreference,
+                target: options.target
+            }
+            : Object.assign(Object.assign({}, options), { origin: current.position }));
         for (const next of nextPositions) {
-            const key = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(next);
-            if (visited.has(key) || !(0,_rules__WEBPACK_IMPORTED_MODULE_1__.isPassableCell)(store, next))
+            const key = (0,_board__WEBPACK_IMPORTED_MODULE_4__.positionKey)(next);
+            if (visited.has(key) || !(0,_board__WEBPACK_IMPORTED_MODULE_4__.isPassableCell)(store, next))
                 continue;
             visited.add(key);
             queue.push({
@@ -749,13 +1110,10 @@ const findPathToTarget = (store, start, isTarget, options = {}) => {
 const estimateFastestRoute = (store, start, target, openedCells = new Set()) => {
     var _a;
     const queue = [{ position: start, firstStep: null, distance: 0, cost: 0, blastedCells: 0 }];
-    const bestCosts = new Map([[(0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(start), 0]]);
+    const bestCosts = new Map([[(0,_board__WEBPACK_IMPORTED_MODULE_4__.positionKey)(start), 0]]);
     while (queue.length > 0) {
-        queue.sort((a, b) => a.cost - b.cost || (0,_rules__WEBPACK_IMPORTED_MODULE_1__.manhattan)(a.position, target) - (0,_rules__WEBPACK_IMPORTED_MODULE_1__.manhattan)(b.position, target));
-        const current = queue.shift();
-        if (!current)
-            break;
-        if (current.firstStep && (0,_rules__WEBPACK_IMPORTED_MODULE_1__.samePosition)(current.position, target)) {
+        const current = takeLowestCostRoute(queue, target);
+        if (current.firstStep && (0,_board__WEBPACK_IMPORTED_MODULE_4__.samePosition)(current.position, target)) {
             return {
                 firstStep: current.firstStep,
                 distance: current.distance,
@@ -763,16 +1121,16 @@ const estimateFastestRoute = (store, start, target, openedCells = new Set()) => 
                 blastedCells: current.blastedCells
             };
         }
-        for (const next of (0,_rules__WEBPACK_IMPORTED_MODULE_1__.getAdjacentPositions)(current.position)) {
-            if ((0,_rules__WEBPACK_IMPORTED_MODULE_1__.bombAt)(store, next) || (0,_rules__WEBPACK_IMPORTED_MODULE_1__.isActiveExplosionCell)(store, next))
+        for (const next of (0,_board__WEBPACK_IMPORTED_MODULE_4__.getAdjacentPositions)(current.position)) {
+            if (_entities_bomb__WEBPACK_IMPORTED_MODULE_1__.Bomb.findAt(store, next) || _entities_explosion__WEBPACK_IMPORTED_MODULE_2__.Explosion.isActiveAt(store, next))
                 continue;
-            const key = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(next);
+            const key = (0,_board__WEBPACK_IMPORTED_MODULE_4__.positionKey)(next);
             const opened = openedCells.has(key);
-            const contribution = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.isContributionCell)(store, next) && !opened;
-            const walkable = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.isEmptyCell)(store, next) || opened || contribution || (0,_rules__WEBPACK_IMPORTED_MODULE_1__.samePosition)(next, target);
+            const contribution = (0,_board__WEBPACK_IMPORTED_MODULE_4__.isContributionCell)(store, next) && !opened;
+            const walkable = (0,_board__WEBPACK_IMPORTED_MODULE_4__.isEmptyCell)(store, next) || opened || contribution || (0,_board__WEBPACK_IMPORTED_MODULE_4__.samePosition)(next, target);
             if (!walkable)
                 continue;
-            const stepCost = contribution ? _constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_PATH_BLAST_COST : 1;
+            const stepCost = contribution ? _constants__WEBPACK_IMPORTED_MODULE_0__.PATH_BLAST_COST : 1;
             const nextCost = current.cost + stepCost;
             const previousBest = bestCosts.get(key);
             if (previousBest !== undefined && previousBest <= nextCost)
@@ -789,32 +1147,41 @@ const estimateFastestRoute = (store, start, target, openedCells = new Set()) => 
     }
     return null;
 };
+const takeLowestCostRoute = (queue, target) => {
+    let bestIndex = 0;
+    for (let index = 1; index < queue.length; index++) {
+        const best = queue[bestIndex];
+        const candidate = queue[index];
+        const costDiff = candidate.cost - best.cost;
+        const heuristicDiff = (0,_board__WEBPACK_IMPORTED_MODULE_4__.manhattan)(candidate.position, target) - (0,_board__WEBPACK_IMPORTED_MODULE_4__.manhattan)(best.position, target);
+        if (costDiff < 0 || (costDiff === 0 && heuristicDiff < 0))
+            bestIndex = index;
+    }
+    return queue.splice(bestIndex, 1)[0];
+};
 const findEscapeStep = (store, player) => {
     var _a;
-    const maxDepth = Math.max(_constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_BOMB_FUSE_FRAMES, _constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_AI.ESCAPE_MIN_SEARCH_DEPTH);
-    const queue = [
-        { position: player, firstStep: null, depth: 0 }
-    ];
-    const visited = new Set([(0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(player)]);
-    while (queue.length > 0) {
-        const current = queue.shift();
-        if (!current)
-            break;
-        if (current.firstStep && (0,_rules__WEBPACK_IMPORTED_MODULE_1__.isSafeStandingCell)(store, player, current.position))
+    const maxDepth = Math.max(_constants__WEBPACK_IMPORTED_MODULE_0__.BOMB_FUSE_FRAMES, _constants__WEBPACK_IMPORTED_MODULE_0__.AI.ESCAPE_MIN_SEARCH_DEPTH);
+    const queue = [{ position: player, firstStep: null, depth: 0 }];
+    const visited = new Set([(0,_board__WEBPACK_IMPORTED_MODULE_4__.positionKey)(player)]);
+    let queueHead = 0;
+    while (queueHead < queue.length) {
+        const current = queue[queueHead++];
+        if (current.firstStep && player.isSafeStandingCell(store, current.position))
             return current.firstStep;
         if (current.depth >= maxDepth)
             continue;
-        const nextPositions = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.getAdjacentPositions)(current.position).sort((a, b) => {
-            const aThreats = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.bombsThreateningAt)(store, a, player.id).length;
-            const bThreats = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.bombsThreateningAt)(store, b, player.id).length;
+        const nextPositions = (0,_board__WEBPACK_IMPORTED_MODULE_4__.getAdjacentPositions)(current.position).sort((a, b) => {
+            const aThreats = _entities_bomb__WEBPACK_IMPORTED_MODULE_1__.Bomb.threateningAt(store, a, player.id).length;
+            const bThreats = _entities_bomb__WEBPACK_IMPORTED_MODULE_1__.Bomb.threateningAt(store, b, player.id).length;
             return aThreats - bThreats;
         });
         for (const next of nextPositions) {
-            const key = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(next);
-            if (visited.has(key) || !(0,_rules__WEBPACK_IMPORTED_MODULE_1__.isEmptyCell)(store, next) || (0,_rules__WEBPACK_IMPORTED_MODULE_1__.bombAt)(store, next) || (0,_rules__WEBPACK_IMPORTED_MODULE_1__.isActiveExplosionCell)(store, next, player.id))
+            const key = (0,_board__WEBPACK_IMPORTED_MODULE_4__.positionKey)(next);
+            if (visited.has(key) || !(0,_board__WEBPACK_IMPORTED_MODULE_4__.isEmptyCell)(store, next) || _entities_bomb__WEBPACK_IMPORTED_MODULE_1__.Bomb.findAt(store, next) || _entities_explosion__WEBPACK_IMPORTED_MODULE_2__.Explosion.isActiveAt(store, next, player.id))
                 continue;
             const nextDepth = current.depth + 1;
-            const explodesBeforeNextMove = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.bombsThreateningAt)(store, next, player.id).some((bomb) => bomb.timer <= nextDepth);
+            const explodesBeforeNextMove = _entities_bomb__WEBPACK_IMPORTED_MODULE_1__.Bomb.threateningAt(store, next, player.id).some((bomb) => bomb.timer <= nextDepth);
             if (explodesBeforeNextMove)
                 continue;
             visited.add(key);
@@ -829,22 +1196,31 @@ const findEscapeStep = (store, player) => {
 };
 const findReachableBombOrigins = (store, player) => {
     var _a;
-    const visited = new Set([(0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(player)]);
+    const visited = new Set([(0,_board__WEBPACK_IMPORTED_MODULE_4__.positionKey)(player)]);
     const queue = [{ position: player, firstStep: null, distance: 0 }];
     const origins = [];
     const previousPosition = getPreviousPlayerPosition(store, player.id);
-    while (queue.length > 0) {
-        const current = queue.shift();
-        if (!current)
-            break;
+    let queueHead = 0;
+    while (queueHead < queue.length) {
+        const current = queue[queueHead++];
         origins.push(current);
-        const nextPositions = sortPathOptions((0,_rules__WEBPACK_IMPORTED_MODULE_1__.getAdjacentPositions)(current.position), current.firstStep ? { target: player } : { avoidFirstStep: previousPosition, target: player });
+        const nextPositions = sortPathOptions((0,_board__WEBPACK_IMPORTED_MODULE_4__.getAdjacentPositions)(current.position), current.firstStep
+            ? {
+                attackSide: player.attackSide,
+                origin: current.position,
+                routePreference: player.routePreference,
+                target: player
+            }
+            : {
+                attackSide: player.attackSide,
+                avoidFirstStep: previousPosition,
+                origin: current.position,
+                routePreference: player.routePreference,
+                target: player
+            });
         for (const next of nextPositions) {
-            const key = (0,_rules__WEBPACK_IMPORTED_MODULE_1__.positionKey)(next);
-            if (visited.has(key) ||
-                !(0,_rules__WEBPACK_IMPORTED_MODULE_1__.isPassableCell)(store, next) ||
-                (0,_rules__WEBPACK_IMPORTED_MODULE_1__.isActiveExplosionCell)(store, next, player.id) ||
-                (0,_rules__WEBPACK_IMPORTED_MODULE_1__.isInOwnFutureBlast)(store, player, next)) {
+            const key = (0,_board__WEBPACK_IMPORTED_MODULE_4__.positionKey)(next);
+            if (visited.has(key) || !(0,_board__WEBPACK_IMPORTED_MODULE_4__.isPassableCell)(store, next) || player.isOwnExplosionDangerCell(store, next)) {
                 continue;
             }
             visited.add(key);
@@ -858,18 +1234,10 @@ const findReachableBombOrigins = (store, player) => {
     return origins;
 };
 const canEscapeAfterPlantingBombAt = (store, player, position) => {
-    if (!(0,_rules__WEBPACK_IMPORTED_MODULE_1__.isEmptyCell)(store, position) || (0,_rules__WEBPACK_IMPORTED_MODULE_1__.bombAt)(store, position))
+    if (!(0,_board__WEBPACK_IMPORTED_MODULE_4__.isEmptyCell)(store, position) || _entities_bomb__WEBPACK_IMPORTED_MODULE_1__.Bomb.findAt(store, position))
         return false;
-    const virtualBomb = {
-        id: -1,
-        ownerId: player.id,
-        x: position.x,
-        y: position.y,
-        timer: _constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_BOMB_FUSE_FRAMES,
-        exploded: false,
-        sprite: ''
-    };
-    const virtualPlayer = Object.assign(Object.assign({}, player), { x: position.x, y: position.y });
+    const virtualBomb = new _entities_bomb__WEBPACK_IMPORTED_MODULE_1__.Bomb(-1, player.id, position.x, position.y, player.blastRange, _constants__WEBPACK_IMPORTED_MODULE_0__.BOMB_FUSE_FRAMES, false);
+    const virtualPlayer = _entities_player__WEBPACK_IMPORTED_MODULE_3__.Player.fromState(Object.assign(Object.assign({}, player), { x: position.x, y: position.y }));
     store.bombs.push(virtualBomb);
     try {
         return Boolean(findEscapeStep(store, virtualPlayer));
@@ -883,226 +1251,114 @@ const canEscapeAfterPlantingBomb = (store, player) => {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/bomberman/core/rules.ts":
+/***/ "./src/bomberman/core/state.ts"
 /*!*************************************!*\
-  !*** ./src/bomberman/core/rules.ts ***!
+  !*** ./src/bomberman/core/state.ts ***!
   \*************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   DIRECTIONS: () => (/* binding */ DIRECTIONS),
-/* harmony export */   bombAt: () => (/* binding */ bombAt),
-/* harmony export */   bombWouldHitContribution: () => (/* binding */ bombWouldHitContribution),
-/* harmony export */   bombWouldHitOpponent: () => (/* binding */ bombWouldHitOpponent),
-/* harmony export */   bombWouldHitTarget: () => (/* binding */ bombWouldHitTarget),
-/* harmony export */   bombsThreateningAt: () => (/* binding */ bombsThreateningAt),
-/* harmony export */   canPlaceBomb: () => (/* binding */ canPlaceBomb),
-/* harmony export */   clearContributionCell: () => (/* binding */ clearContributionCell),
-/* harmony export */   countRemainingContributions: () => (/* binding */ countRemainingContributions),
-/* harmony export */   explodeBomb: () => (/* binding */ explodeBomb),
-/* harmony export */   findNearestEmptyCell: () => (/* binding */ findNearestEmptyCell),
-/* harmony export */   getAdjacentPositions: () => (/* binding */ getAdjacentPositions),
-/* harmony export */   getBlastCells: () => (/* binding */ getBlastCells),
-/* harmony export */   inBounds: () => (/* binding */ inBounds),
-/* harmony export */   isActiveExplosionCell: () => (/* binding */ isActiveExplosionCell),
-/* harmony export */   isContributionCell: () => (/* binding */ isContributionCell),
-/* harmony export */   isEmptyCell: () => (/* binding */ isEmptyCell),
-/* harmony export */   isInOwnFutureBlast: () => (/* binding */ isInOwnFutureBlast),
-/* harmony export */   isPassableCell: () => (/* binding */ isPassableCell),
-/* harmony export */   isSafeStandingCell: () => (/* binding */ isSafeStandingCell),
-/* harmony export */   manhattan: () => (/* binding */ manhattan),
-/* harmony export */   placeBomb: () => (/* binding */ placeBomb),
-/* harmony export */   positionKey: () => (/* binding */ positionKey),
-/* harmony export */   samePosition: () => (/* binding */ samePosition),
-/* harmony export */   updateBombs: () => (/* binding */ updateBombs),
-/* harmony export */   updateExplosions: () => (/* binding */ updateExplosions)
+/* harmony export */   GameState: () => (/* binding */ GameState)
 /* harmony export */ });
 /* harmony import */ var _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../shared/utils/utils */ "./src/shared/utils/utils.ts");
-/* harmony import */ var _constants__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./constants */ "./src/bomberman/core/constants.ts");
+/* harmony import */ var _board__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./board */ "./src/bomberman/core/board.ts");
 
 
-const DIRECTIONS = [
-    { x: 0, y: -1, direction: 'up' },
-    { x: 0, y: 1, direction: 'down' },
-    { x: -1, y: 0, direction: 'left' },
-    { x: 1, y: 0, direction: 'right' }
-];
-const positionKey = ({ x, y }) => `${x}:${y}`;
-const samePosition = (a, b) => a.x === b.x && a.y === b.y;
-const manhattan = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-const inBounds = ({ x, y }) => x >= 0 && x < _constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH && y >= 0 && y < _constants__WEBPACK_IMPORTED_MODULE_1__.GRID_HEIGHT;
-const isContributionCell = (store, { x, y }) => inBounds({ x, y }) && store.grid[x][y].commitsCount > 0;
-const isEmptyCell = (store, { x, y }) => inBounds({ x, y }) && store.grid[x][y].commitsCount === 0;
-const bombAt = (store, { x, y }) => store.bombs.find((bomb) => !bomb.exploded && bomb.x === x && bomb.y === y);
-const isPassableCell = (store, position) => isEmptyCell(store, position) && !bombAt(store, position);
-const getBlastCells = (position) => [
-    position,
-    ...DIRECTIONS.map((direction) => ({
-        x: position.x + direction.x * _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_BLAST_RANGE,
-        y: position.y + direction.y * _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_BLAST_RANGE
-    })).filter(inBounds)
-];
-const isActiveExplosionCell = (store, position, ownerId) => store.activeExplosions.some((explosion) => (ownerId === undefined || explosion.ownerId === ownerId) && explosion.affectedCells.some((cell) => samePosition(cell, position)));
-const bombsThreateningAt = (store, position, ownerId) => store.bombs.filter((bomb) => !bomb.exploded &&
-    (ownerId === undefined || bomb.ownerId === ownerId) &&
-    getBlastCells(bomb).some((cell) => samePosition(cell, position)));
-const isInOwnFutureBlast = (store, player, position) => bombsThreateningAt(store, position, player.id).length > 0;
-const isSafeStandingCell = (store, player, position) => isEmptyCell(store, position) &&
-    !bombAt(store, position) &&
-    !isActiveExplosionCell(store, position, player.id) &&
-    !isInOwnFutureBlast(store, player, position);
-const getAdjacentPositions = ({ x, y }) => DIRECTIONS.map((delta) => ({
-    x: x + delta.x,
-    y: y + delta.y,
-    direction: delta.direction
-})).filter(inBounds);
-const countRemainingContributions = (store) => store.grid.reduce((sum, col) => sum + col.filter((cell) => cell.commitsCount > 0).length, 0);
-const findNearestEmptyCell = (store, origin, blocked = new Set()) => {
-    let best = null;
-    let bestDistance = Number.POSITIVE_INFINITY;
-    for (let x = 0; x < _constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH; x++) {
-        for (let y = 0; y < _constants__WEBPACK_IMPORTED_MODULE_1__.GRID_HEIGHT; y++) {
-            const position = { x, y };
-            if (!isEmptyCell(store, position) || blocked.has(positionKey(position)))
-                continue;
-            const distance = Math.abs(origin.x - x) + Math.abs(origin.y - y);
-            if (distance < bestDistance) {
-                best = position;
-                bestDistance = distance;
-            }
-        }
+class GameState {
+    static from(store) {
+        return new GameState(store);
     }
-    return best !== null && best !== void 0 ? best : origin;
-};
-const canPlaceBomb = (store, player) => player.alive &&
-    isEmptyCell(store, player) &&
-    !bombAt(store, player) &&
-    !store.bombs.some((bomb) => !bomb.exploded && bomb.ownerId === player.id);
-const bombWouldHitContribution = (store, position) => getBlastCells(position).some((cell) => isContributionCell(store, cell));
-const bombWouldHitOpponent = (store, player) => {
-    const opponent = store.players.find((candidate) => candidate.id !== player.id && candidate.alive);
-    return Boolean(opponent && getBlastCells(player).some((cell) => samePosition(cell, opponent)));
-};
-const bombWouldHitTarget = (store, player) => bombWouldHitContribution(store, player) || bombWouldHitOpponent(store, player);
-const placeBomb = (store, player) => {
-    if (!canPlaceBomb(store, player))
-        return;
-    store.bombs.push({
-        id: store.nextBombId++,
-        ownerId: player.id,
-        x: player.x,
-        y: player.y,
-        timer: _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_BOMB_FUSE_FRAMES,
-        exploded: false,
-        sprite: _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.explosions.bombs.fuse0.data
-    });
-    player.bombsPlaced++;
-};
-const clearContributionCell = (store, position, ownerId) => {
-    if (!isContributionCell(store, position))
-        return false;
-    const theme = _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__.Utils.getCurrentTheme(store);
-    store.grid[position.x][position.y] = {
-        commitsCount: 0,
-        level: 'NONE',
-        color: theme.intensityColors[0]
-    };
-    const owner = store.players.find((player) => player.id === ownerId);
-    if (owner)
-        owner.cellsDestroyed++;
-    store.cellEvents.push({
-        frameIndex: store.gameHistory.length,
-        x: position.x,
-        y: position.y,
-        color: theme.intensityColors[0]
-    });
-    store.config.pointsIncreasedCallback(store.cellEvents.length);
-    return true;
-};
-const explodeBomb = (store, bomb) => {
-    if (bomb.exploded)
-        return;
-    bomb.exploded = true;
-    const affectedCells = [{ x: bomb.x, y: bomb.y }];
-    const hitPlayerIds = [];
-    for (const direction of DIRECTIONS) {
-        const position = {
-            x: bomb.x + direction.x * _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_BLAST_RANGE,
-            y: bomb.y + direction.y * _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_BLAST_RANGE
+    constructor(store) {
+        this.store = store;
+    }
+    reset() {
+        this.store.frameCount = 0;
+        this.store.nextBombId = 0;
+        this.store.nextItemId = 0;
+        this.store.players = [];
+        this.store.bombs = [];
+        this.store.activeExplosions = [];
+        this.store.items = [];
+        this.store.gameHistory = [];
+        this.store.cellEvents = [];
+        this.store.explosionEvents = [];
+    }
+    nextBombId() {
+        return this.store.nextBombId++;
+    }
+    nextItemId() {
+        return this.store.nextItemId++;
+    }
+    addBomb(bomb) {
+        this.store.bombs.push(bomb);
+    }
+    addExplosion(explosion) {
+        this.store.activeExplosions.push(explosion);
+        this.store.explosionEvents.push(Object.assign({ frameIndex: this.store.gameHistory.length }, explosion));
+    }
+    activeBombsOwnedBy(ownerId) {
+        return this.store.bombs.filter((bomb) => !bomb.exploded && bomb.ownerId === ownerId);
+    }
+    findBombAt(position) {
+        const target = _board__WEBPACK_IMPORTED_MODULE_1__.GridPosition.from(position);
+        return this.store.bombs.find((bomb) => !bomb.exploded && target.equals(bomb));
+    }
+    activeExplosionAt(position, ownerId) {
+        return this.store.activeExplosions.some((explosion) => (ownerId === undefined || explosion.ownerId === ownerId) && explosion.contains(position));
+    }
+    aliveOpponentOf(playerId) {
+        return this.store.players.find((candidate) => candidate.id !== playerId && candidate.alive);
+    }
+    clearContributionCell(position) {
+        const target = _board__WEBPACK_IMPORTED_MODULE_1__.GridPosition.from(position);
+        const theme = _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__.Utils.getCurrentTheme(this.store);
+        this.store.grid[target.x][target.y] = {
+            commitsCount: 0,
+            level: 'NONE',
+            color: theme.intensityColors[0]
         };
-        if (!inBounds(position))
-            continue;
-        affectedCells.push(position);
-        clearContributionCell(store, position, bomb.ownerId);
-        const chainedBomb = bombAt(store, position);
-        if (chainedBomb)
-            explodeBomb(store, chainedBomb);
+        return theme.intensityColors[0];
     }
-    for (const player of store.players) {
-        if (!player.alive)
-            continue;
-        if (!affectedCells.some((position) => position.x === player.x && position.y === player.y))
-            continue;
-        player.alive = false;
-        hitPlayerIds.push(player.id);
+    recordCellDestroyed(position, color) {
+        const target = _board__WEBPACK_IMPORTED_MODULE_1__.GridPosition.from(position);
+        this.store.cellEvents.push({
+            frameIndex: this.store.gameHistory.length,
+            x: target.x,
+            y: target.y,
+            color
+        });
+        this.store.config.pointsIncreasedCallback(this.store.cellEvents.length);
     }
-    const explosion = {
-        bombId: bomb.id,
-        ownerId: bomb.ownerId,
-        x: bomb.x,
-        y: bomb.y,
-        remainingFrames: _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_EXPLOSION_DURATION_FRAMES,
-        affectedCells,
-        hitPlayerIds,
-        sprite: _constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.explosions.bombs.blastCenter.data
-    };
-    store.activeExplosions.push(explosion);
-    store.explosionEvents.push(Object.assign({ frameIndex: store.gameHistory.length }, explosion));
-};
-const updateBombs = (store) => {
-    for (const bomb of store.bombs) {
-        if (!bomb.exploded)
-            bomb.timer--;
-    }
-    for (const bomb of [...store.bombs]) {
-        if (!bomb.exploded && bomb.timer <= 0)
-            explodeBomb(store, bomb);
-    }
-    store.bombs = store.bombs.filter((bomb) => !bomb.exploded);
-};
-const updateExplosions = (store) => {
-    for (const explosion of store.activeExplosions) {
-        explosion.remainingFrames--;
-    }
-    store.activeExplosions = store.activeExplosions.filter((explosion) => explosion.remainingFrames > 0);
-};
+}
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/bomberman/core/store.ts":
+/***/ "./src/bomberman/core/store.ts"
 /*!*************************************!*\
   !*** ./src/bomberman/core/store.ts ***!
   \*************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   Store: () => (/* binding */ Store)
+/* harmony export */   storeTemplate: () => (/* binding */ storeTemplate)
 /* harmony export */ });
-const Store = {
+const storeTemplate = {
     frameCount: 0,
     contributions: [],
     grid: [],
     monthLabels: [],
     gameInterval: 0,
     nextBombId: 0,
+    nextItemId: 0,
     players: [],
     bombs: [],
     activeExplosions: [],
+    items: [],
     gameHistory: [],
     initialColors: [],
     cellEvents: [],
@@ -1111,13 +1367,633 @@ const Store = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/bomberman/index.ts":
+/***/ "./src/bomberman/entities/bomb.ts"
+/*!****************************************!*\
+  !*** ./src/bomberman/entities/bomb.ts ***!
+  \****************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   BlastArea: () => (/* binding */ BlastArea),
+/* harmony export */   Bomb: () => (/* binding */ Bomb)
+/* harmony export */ });
+/* harmony import */ var _core_constants__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../core/constants */ "./src/bomberman/core/constants.ts");
+/* harmony import */ var _explosion__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./explosion */ "./src/bomberman/entities/explosion.ts");
+/* harmony import */ var _core_board__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../core/board */ "./src/bomberman/core/board.ts");
+/* harmony import */ var _item__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./item */ "./src/bomberman/entities/item.ts");
+/* harmony import */ var _core_state__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../core/state */ "./src/bomberman/core/state.ts");
+
+
+
+
+
+class BlastArea {
+    static from(origin, blastRange, isBlocked) {
+        const center = _core_board__WEBPACK_IMPORTED_MODULE_2__.GridPosition.from(origin);
+        const arms = {
+            up: [],
+            down: [],
+            left: [],
+            right: []
+        };
+        for (const vector of _core_board__WEBPACK_IMPORTED_MODULE_2__.DIRECTION_VECTORS) {
+            for (let distance = 1; distance <= blastRange; distance++) {
+                const cell = center.translate(vector, distance);
+                if (!cell.inBounds())
+                    break;
+                arms[vector.direction].push(cell);
+                if (isBlocked(cell))
+                    break;
+            }
+        }
+        return new BlastArea(center, arms);
+    }
+    constructor(origin, arms) {
+        this.origin = origin;
+        this.arms = arms;
+    }
+    cells() {
+        return [this.origin, ...Object.values(this.arms).flat()];
+    }
+    plainCells() {
+        return this.cells().map((cell) => cell.toPlain());
+    }
+    armLength(direction) {
+        return this.arms[direction].length;
+    }
+    endPosition(direction) {
+        var _a;
+        return (_a = this.arms[direction][this.arms[direction].length - 1]) !== null && _a !== void 0 ? _a : this.origin;
+    }
+}
+class Bomb {
+    static findAt(store, { x, y }) {
+        return _core_state__WEBPACK_IMPORTED_MODULE_4__.GameState.from(store).findBombAt({ x, y });
+    }
+    static getBlastCells(store, position, blastRange = _core_constants__WEBPACK_IMPORTED_MODULE_0__.BLAST_RANGE) {
+        const cells = [position];
+        for (const { x, y } of _core_board__WEBPACK_IMPORTED_MODULE_2__.DIRECTIONS) {
+            for (let distance = 1; distance <= blastRange; distance++) {
+                const cell = { x: position.x + x * distance, y: position.y + y * distance };
+                if (!(0,_core_board__WEBPACK_IMPORTED_MODULE_2__.inBounds)(cell))
+                    break;
+                cells.push(cell);
+                if ((0,_core_board__WEBPACK_IMPORTED_MODULE_2__.isContributionCell)(store, cell))
+                    break;
+            }
+        }
+        return cells;
+    }
+    static getBlastArea(store, position, blastRange = _core_constants__WEBPACK_IMPORTED_MODULE_0__.BLAST_RANGE) {
+        return BlastArea.from(position, blastRange, (cell) => (0,_core_board__WEBPACK_IMPORTED_MODULE_2__.isContributionCell)(store, cell));
+    }
+    static threateningAt(store, position, ownerId) {
+        return store.bombs.filter((bomb) => bomb.threatens(store, position, ownerId));
+    }
+    constructor(id, ownerId, x, y, blastRange, timer = _core_constants__WEBPACK_IMPORTED_MODULE_0__.BOMB_FUSE_FRAMES, exploded = false, kickDirection, kickMoveCooldown = 0) {
+        this.id = id;
+        this.ownerId = ownerId;
+        this.x = x;
+        this.y = y;
+        this.blastRange = blastRange;
+        this.timer = timer;
+        this.exploded = exploded;
+        this.kickDirection = kickDirection;
+        this.kickMoveCooldown = kickMoveCooldown;
+    }
+    tick(store) {
+        if (!this.exploded) {
+            this.advanceKick(store);
+            this.timer--;
+        }
+        return this.timer;
+    }
+    getBlastCells(store) {
+        return Bomb.getBlastCells(store, this, this.blastRange);
+    }
+    getBlastArea(store) {
+        return Bomb.getBlastArea(store, this, this.blastRange);
+    }
+    getKickLandingPosition(store, direction) {
+        var _a, _b;
+        const vector = _core_board__WEBPACK_IMPORTED_MODULE_2__.DIRECTION_VECTORS.find((candidate) => candidate.direction === direction);
+        if (!vector)
+            return null;
+        let landing = null;
+        for (let distance = 1; distance <= Math.max(store.grid.length, (_b = (_a = store.grid[0]) === null || _a === void 0 ? void 0 : _a.length) !== null && _b !== void 0 ? _b : 0); distance++) {
+            const candidate = _core_board__WEBPACK_IMPORTED_MODULE_2__.GridPosition.from(this).translate(vector, distance);
+            if (!this.canOccupyKickCell(store, candidate))
+                break;
+            landing = candidate.toPlain();
+        }
+        return landing;
+    }
+    canKick(store, direction) {
+        return this.getKickLandingPosition(store, direction) !== null;
+    }
+    kick(store, direction) {
+        const next = this.getKickNextPosition(store, direction);
+        if (!next)
+            return false;
+        this.x = next.x;
+        this.y = next.y;
+        this.kickDirection = direction;
+        this.kickMoveCooldown = _core_constants__WEBPACK_IMPORTED_MODULE_0__.BOMB_KICK_ROLL_INTERVAL_FRAMES;
+        return true;
+    }
+    advanceKick(store) {
+        if (!this.kickDirection)
+            return;
+        if (this.kickMoveCooldown > 0) {
+            this.kickMoveCooldown--;
+            if (this.kickMoveCooldown > 0)
+                return;
+        }
+        const next = this.getKickNextPosition(store, this.kickDirection);
+        if (!next) {
+            this.kickDirection = undefined;
+            this.kickMoveCooldown = 0;
+            return;
+        }
+        this.x = next.x;
+        this.y = next.y;
+        this.kickMoveCooldown = _core_constants__WEBPACK_IMPORTED_MODULE_0__.BOMB_KICK_ROLL_INTERVAL_FRAMES;
+    }
+    getKickNextPosition(store, direction) {
+        const vector = _core_board__WEBPACK_IMPORTED_MODULE_2__.DIRECTION_VECTORS.find((candidate) => candidate.direction === direction);
+        if (!vector)
+            return null;
+        const next = _core_board__WEBPACK_IMPORTED_MODULE_2__.GridPosition.from(this).translate(vector);
+        return this.canOccupyKickCell(store, next) ? next.toPlain() : null;
+    }
+    canOccupyKickCell(store, position) {
+        return ((0,_core_board__WEBPACK_IMPORTED_MODULE_2__.inBounds)(position) &&
+            !(0,_core_board__WEBPACK_IMPORTED_MODULE_2__.isContributionCell)(store, position) &&
+            !Bomb.findAt(store, position) &&
+            !_explosion__WEBPACK_IMPORTED_MODULE_1__.Explosion.isActiveAt(store, position));
+    }
+    threatens(store, position, ownerId) {
+        return (!this.exploded &&
+            (ownerId === undefined || this.ownerId === ownerId) &&
+            this.getBlastCells(store).some((cell) => (0,_core_board__WEBPACK_IMPORTED_MODULE_2__.samePosition)(cell, position)));
+    }
+    wouldHitContribution(store) {
+        return this.getBlastCells(store).some((cell) => (0,_core_board__WEBPACK_IMPORTED_MODULE_2__.isContributionCell)(store, cell));
+    }
+    wouldHitVisibleItem(store) {
+        return this.getBlastCells(store).some((cell) => _item__WEBPACK_IMPORTED_MODULE_3__.Item.hasVisibleAt(store, cell));
+    }
+    wouldHitOpponent(store) {
+        const opponent = _core_state__WEBPACK_IMPORTED_MODULE_4__.GameState.from(store).aliveOpponentOf(this.ownerId);
+        return Boolean(opponent && this.getBlastCells(store).some((cell) => (0,_core_board__WEBPACK_IMPORTED_MODULE_2__.samePosition)(cell, opponent)));
+    }
+    wouldHitTarget(store) {
+        return this.wouldHitContribution(store) || this.wouldHitOpponent(store);
+    }
+    explode(store) {
+        if (this.exploded)
+            return;
+        this.exploded = true;
+        const affectedCells = this.getBlastCells(store);
+        this.applyBlastToCells(store, affectedCells);
+        const hitPlayerIds = this.killPlayersInBlast(store, affectedCells);
+        this.recordExplosion(store, affectedCells, hitPlayerIds);
+    }
+    applyBlastToCells(store, affectedCells) {
+        for (const position of affectedCells) {
+            if ((0,_core_board__WEBPACK_IMPORTED_MODULE_2__.isContributionCell)(store, position)) {
+                this.destroyContributionCell(store, position);
+            }
+            else {
+                _item__WEBPACK_IMPORTED_MODULE_3__.Item.destroyVisibleAt(store, position);
+            }
+            const chainedBomb = Bomb.findAt(store, position);
+            if (chainedBomb)
+                chainedBomb.explode(store);
+        }
+    }
+    destroyContributionCell(store, position) {
+        if (!(0,_core_board__WEBPACK_IMPORTED_MODULE_2__.isContributionCell)(store, position))
+            return false;
+        const gameState = _core_state__WEBPACK_IMPORTED_MODULE_4__.GameState.from(store);
+        const color = gameState.clearContributionCell(position);
+        const owner = store.players.find((player) => player.id === this.ownerId);
+        if (owner)
+            owner.markCellDestroyed();
+        _item__WEBPACK_IMPORTED_MODULE_3__.Item.revealAt(store, position);
+        gameState.recordCellDestroyed(position, color);
+        return true;
+    }
+    killPlayersInBlast(store, affectedCells) {
+        const hitPlayerIds = [];
+        for (const player of store.players) {
+            if (!player.alive)
+                continue;
+            if (!affectedCells.some((position) => position.x === player.x && position.y === player.y))
+                continue;
+            player.kill();
+            hitPlayerIds.push(player.id);
+        }
+        return hitPlayerIds;
+    }
+    recordExplosion(store, affectedCells, hitPlayerIds) {
+        const explosion = new _explosion__WEBPACK_IMPORTED_MODULE_1__.Explosion(this.id, this.ownerId, this.x, this.y, this.blastRange, affectedCells, _core_constants__WEBPACK_IMPORTED_MODULE_0__.EXPLOSION_DURATION_FRAMES, hitPlayerIds);
+        _core_state__WEBPACK_IMPORTED_MODULE_4__.GameState.from(store).addExplosion(explosion);
+    }
+}
+
+
+/***/ },
+
+/***/ "./src/bomberman/entities/explosion.ts"
+/*!*********************************************!*\
+  !*** ./src/bomberman/entities/explosion.ts ***!
+  \*********************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   Explosion: () => (/* binding */ Explosion)
+/* harmony export */ });
+/* harmony import */ var _core_state__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../core/state */ "./src/bomberman/core/state.ts");
+/* harmony import */ var _core_board__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../core/board */ "./src/bomberman/core/board.ts");
+
+
+class Explosion {
+    static isActiveAt(store, position, ownerId) {
+        return _core_state__WEBPACK_IMPORTED_MODULE_0__.GameState.from(store).activeExplosionAt(position, ownerId);
+    }
+    constructor(bombId, ownerId, x, y, blastRange, affectedCells, remainingFrames, hitPlayerIds) {
+        this.bombId = bombId;
+        this.ownerId = ownerId;
+        this.x = x;
+        this.y = y;
+        this.blastRange = blastRange;
+        this.affectedCells = affectedCells;
+        this.remainingFrames = remainingFrames;
+        this.hitPlayerIds = hitPlayerIds;
+        this.affectedCells = affectedCells.map((cell) => (Object.assign({}, cell)));
+        this.hitPlayerIds = [...hitPlayerIds];
+    }
+    tick() {
+        return --this.remainingFrames;
+    }
+    contains(position) {
+        const target = _core_board__WEBPACK_IMPORTED_MODULE_1__.GridPosition.from(position);
+        return this.affectedCells.some((cell) => target.equals(cell));
+    }
+    markPlayerHit(playerId) {
+        if (!this.hitPlayerIds.includes(playerId)) {
+            this.hitPlayerIds.push(playerId);
+        }
+    }
+}
+
+
+/***/ },
+
+/***/ "./src/bomberman/entities/item.ts"
+/*!****************************************!*\
+  !*** ./src/bomberman/entities/item.ts ***!
+  \****************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   BlastRangePowerUp: () => (/* binding */ BlastRangePowerUp),
+/* harmony export */   BombCapacityPowerUp: () => (/* binding */ BombCapacityPowerUp),
+/* harmony export */   BombKickPowerUp: () => (/* binding */ BombKickPowerUp),
+/* harmony export */   ITEM_DEFINITIONS: () => (/* binding */ ITEM_DEFINITIONS),
+/* harmony export */   ITEM_TYPE_WEIGHTS: () => (/* binding */ ITEM_TYPE_WEIGHTS),
+/* harmony export */   Item: () => (/* binding */ Item),
+/* harmony export */   SpeedPowerUp: () => (/* binding */ SpeedPowerUp)
+/* harmony export */ });
+/* harmony import */ var _core_constants__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../core/constants */ "./src/bomberman/core/constants.ts");
+/* harmony import */ var _core_state__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../core/state */ "./src/bomberman/core/state.ts");
+/* harmony import */ var _core_board__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../core/board */ "./src/bomberman/core/board.ts");
+
+
+
+class BlastRangePowerUp {
+    applyTo(player) {
+        player.increaseBlastRange();
+    }
+}
+class SpeedPowerUp {
+    applyTo(player) {
+        player.increaseSpeed(_core_constants__WEBPACK_IMPORTED_MODULE_0__.SPEED_ITEM_BONUS);
+    }
+}
+class BombCapacityPowerUp {
+    applyTo(player) {
+        player.increaseBombCapacity();
+    }
+}
+class BombKickPowerUp {
+    applyTo(player) {
+        player.enableBombKick();
+    }
+}
+const ITEM_DEFINITIONS = {
+    'blast-range': {
+        sprite: _core_constants__WEBPACK_IMPORTED_MODULE_0__.ITEM_SPRITES.blastRange,
+        powerUp: new BlastRangePowerUp()
+    },
+    speed: {
+        sprite: _core_constants__WEBPACK_IMPORTED_MODULE_0__.ITEM_SPRITES.speed,
+        powerUp: new SpeedPowerUp()
+    },
+    'bomb-capacity': {
+        sprite: _core_constants__WEBPACK_IMPORTED_MODULE_0__.ITEM_SPRITES.bombCapacity,
+        powerUp: new BombCapacityPowerUp()
+    },
+    'bomb-kick': {
+        sprite: _core_constants__WEBPACK_IMPORTED_MODULE_0__.ITEM_SPRITES.bombKick,
+        powerUp: new BombKickPowerUp()
+    }
+};
+const ITEM_TYPE_WEIGHTS = {
+    'blast-range': 3,
+    speed: 3,
+    'bomb-capacity': 3,
+    'bomb-kick': 1
+};
+class Item {
+    static createHiddenItems(store) {
+        store.items = [];
+        const sparseMultiplier = Item.calculateSparseDropMultiplier(store);
+        for (let x = 0; x < store.grid.length; x++) {
+            for (let y = 0; y < store.grid[x].length; y++) {
+                const cell = store.grid[x][y];
+                const baseDropChance = cell.commitsCount > 0 ? _core_constants__WEBPACK_IMPORTED_MODULE_0__.ITEM_DROP_CHANCE_BY_LEVEL[cell.level] : 0;
+                const dropChance = Math.min(1, baseDropChance * sparseMultiplier);
+                if (dropChance <= 0 || Math.random() >= dropChance)
+                    continue;
+                store.items.push(Item.create(store, { x, y }, Item.selectRandomType()));
+            }
+        }
+    }
+    static revealAt(store, position) {
+        const item = Item.findAt(store, position);
+        if (!item)
+            return null;
+        return item.reveal() ? item : null;
+    }
+    static collectVisibleAt(store, player) {
+        const item = Item.findAt(store, player);
+        if (!(item === null || item === void 0 ? void 0 : item.visible))
+            return null;
+        return item.collectBy(player) ? item : null;
+    }
+    static destroyVisibleAt(store, position) {
+        const item = Item.findAt(store, position);
+        if (!item)
+            return null;
+        return item.destroy() ? item : null;
+    }
+    static hasVisibleAt(store, position) {
+        var _a;
+        return Boolean((_a = Item.findAt(store, position)) === null || _a === void 0 ? void 0 : _a.visible);
+    }
+    static create(store, position, type) {
+        return new Item(_core_state__WEBPACK_IMPORTED_MODULE_1__.GameState.from(store).nextItemId(), type, position.x, position.y);
+    }
+    static calculateSparseDropMultiplier(store) {
+        const expectedDropCount = store.grid.reduce((total, column) => total +
+            column.reduce((columnTotal, cell) => columnTotal + (cell.commitsCount > 0 ? _core_constants__WEBPACK_IMPORTED_MODULE_0__.ITEM_DROP_CHANCE_BY_LEVEL[cell.level] : 0), 0), 0);
+        if (expectedDropCount <= 0 || expectedDropCount >= _core_constants__WEBPACK_IMPORTED_MODULE_0__.ITEM_DROP_TARGET_EXPECTED_COUNT)
+            return 1;
+        return Math.min(_core_constants__WEBPACK_IMPORTED_MODULE_0__.ITEM_DROP_MAX_SPARSE_MULTIPLIER, _core_constants__WEBPACK_IMPORTED_MODULE_0__.ITEM_DROP_TARGET_EXPECTED_COUNT / expectedDropCount);
+    }
+    static selectRandomType() {
+        const itemTypes = Object.keys(ITEM_DEFINITIONS);
+        const totalWeight = itemTypes.reduce((sum, itemType) => sum + ITEM_TYPE_WEIGHTS[itemType], 0);
+        let randomWeight = Math.random() * totalWeight;
+        for (const itemType of itemTypes) {
+            randomWeight -= ITEM_TYPE_WEIGHTS[itemType];
+            if (randomWeight < 0)
+                return itemType;
+        }
+        return 'blast-range';
+    }
+    static findAt(store, position) {
+        const target = _core_board__WEBPACK_IMPORTED_MODULE_2__.GridPosition.from(position);
+        if (!target.inBounds())
+            return undefined;
+        return store.items.find((item) => !item.collected && !item.destroyed && target.equals(item));
+    }
+    constructor(id, type, x, y, hidden = true, collected = false, destroyed = false) {
+        this.id = id;
+        this.type = type;
+        this.x = x;
+        this.y = y;
+        this.hidden = hidden;
+        this.collected = collected;
+        this.destroyed = destroyed;
+    }
+    get visible() {
+        return !this.hidden && !this.collected && !this.destroyed;
+    }
+    reveal() {
+        if (this.collected || this.destroyed)
+            return false;
+        this.hidden = false;
+        return true;
+    }
+    collectBy(player) {
+        if (!this.visible)
+            return false;
+        ITEM_DEFINITIONS[this.type].powerUp.applyTo(player);
+        return this.collect();
+    }
+    collect() {
+        if (!this.visible)
+            return false;
+        this.collected = true;
+        return true;
+    }
+    destroy() {
+        if (!this.visible)
+            return false;
+        this.destroyed = true;
+        return true;
+    }
+}
+
+
+/***/ },
+
+/***/ "./src/bomberman/entities/player.ts"
+/*!******************************************!*\
+  !*** ./src/bomberman/entities/player.ts ***!
+  \******************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   Player: () => (/* binding */ Player),
+/* harmony export */   clearPlayerSpawnAreas: () => (/* binding */ clearPlayerSpawnAreas),
+/* harmony export */   placePlayers: () => (/* binding */ placePlayers)
+/* harmony export */ });
+/* harmony import */ var _core_constants__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../core/constants */ "./src/bomberman/core/constants.ts");
+/* harmony import */ var _bomb__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./bomb */ "./src/bomberman/entities/bomb.ts");
+/* harmony import */ var _explosion__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./explosion */ "./src/bomberman/entities/explosion.ts");
+/* harmony import */ var _core_board__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../core/board */ "./src/bomberman/core/board.ts");
+/* harmony import */ var _core_state__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../core/state */ "./src/bomberman/core/state.ts");
+
+
+
+
+
+const placePlayers = (store) => {
+    const playerOneStart = { x: 0, y: 0 };
+    const playerTwoStart = { x: _core_constants__WEBPACK_IMPORTED_MODULE_0__.GRID_WIDTH - 1, y: _core_constants__WEBPACK_IMPORTED_MODULE_0__.GRID_HEIGHT - 1 };
+    store.players = [createPlayer(1, 'Bomberman', playerOneStart, 'right'), createPlayer(2, 'Plunder Bomber', playerTwoStart, 'left')];
+};
+const clearPlayerSpawnAreas = (store) => {
+    clearSpawnArea(store, { x: 0, y: 0 });
+    clearSpawnArea(store, { x: _core_constants__WEBPACK_IMPORTED_MODULE_0__.GRID_WIDTH - 2, y: _core_constants__WEBPACK_IMPORTED_MODULE_0__.GRID_HEIGHT - 2 });
+};
+const clearSpawnArea = (store, topLeft) => {
+    for (let x = topLeft.x; x < topLeft.x + 2; x++) {
+        for (let y = topLeft.y; y < topLeft.y + 2; y++) {
+            const position = { x, y };
+            if ((0,_core_board__WEBPACK_IMPORTED_MODULE_3__.inBounds)(position))
+                clearSpawnContributionCell(store, position);
+        }
+    }
+};
+const clearSpawnContributionCell = (store, position) => {
+    if (!(0,_core_board__WEBPACK_IMPORTED_MODULE_3__.isContributionCell)(store, position))
+        return false;
+    _core_state__WEBPACK_IMPORTED_MODULE_4__.GameState.from(store).clearContributionCell(position);
+    return true;
+};
+const createPlayer = (id, name, position, direction) => new Player(id, name, position.x, position.y, direction, true, 0, 0, 0, 0, 0, 0, randomAttackSide(), randomRoutePreference());
+const randomAttackSide = () => (Math.random() < 0.5 ? 'left' : 'right');
+const randomRoutePreference = () => (Math.random() < 0.5 ? 'horizontal-first' : 'vertical-first');
+class Player {
+    static fromState(state) {
+        var _a, _b, _c, _d;
+        return new Player(state.id, state.name, state.x, state.y, state.direction, state.alive, state.bombsPlaced, state.cellsDestroyed, state.blastRangeBonus, (_a = state.bombCapacityBonus) !== null && _a !== void 0 ? _a : 0, (_b = state.speedBonus) !== null && _b !== void 0 ? _b : 0, (_c = state.movementStepProgress) !== null && _c !== void 0 ? _c : 0, state.attackSide, state.routePreference, (_d = state.canKickBombs) !== null && _d !== void 0 ? _d : false);
+    }
+    constructor(id, name, x, y, direction, alive = true, bombsPlaced = 0, cellsDestroyed = 0, blastRangeBonus = 0, bombCapacityBonus = 0, speedBonus = 0, movementStepProgress = 0, attackSide, routePreference, canKickBombs = false) {
+        this.id = id;
+        this.name = name;
+        this.x = x;
+        this.y = y;
+        this.direction = direction;
+        this.alive = alive;
+        this.bombsPlaced = bombsPlaced;
+        this.cellsDestroyed = cellsDestroyed;
+        this.blastRangeBonus = blastRangeBonus;
+        this.bombCapacityBonus = bombCapacityBonus;
+        this.speedBonus = speedBonus;
+        this.movementStepProgress = movementStepProgress;
+        this.attackSide = attackSide;
+        this.routePreference = routePreference;
+        this.canKickBombs = canKickBombs;
+    }
+    get blastRange() {
+        return _core_constants__WEBPACK_IMPORTED_MODULE_0__.BLAST_RANGE + this.blastRangeBonus;
+    }
+    get bombLimit() {
+        return _core_constants__WEBPACK_IMPORTED_MODULE_0__.BOMB_LIMIT + this.bombCapacityBonus;
+    }
+    get previewBomb() {
+        return new _bomb__WEBPACK_IMPORTED_MODULE_1__.Bomb(-1, this.id, this.x, this.y, this.blastRange, _core_constants__WEBPACK_IMPORTED_MODULE_0__.BOMB_FUSE_FRAMES, false);
+    }
+    nextMoveCount() {
+        const speedUnits = _core_constants__WEBPACK_IMPORTED_MODULE_0__.PLAYER_SPEED_UNITS + this.speedBonus;
+        const progress = this.movementStepProgress + speedUnits;
+        const moveCount = Math.floor(progress / _core_constants__WEBPACK_IMPORTED_MODULE_0__.PLAYER_SPEED_UNITS);
+        this.movementStepProgress = progress % _core_constants__WEBPACK_IMPORTED_MODULE_0__.PLAYER_SPEED_UNITS;
+        return Math.max(1, moveCount);
+    }
+    moveTo(next, direction) {
+        if (direction)
+            this.direction = direction;
+        this.x = next.x;
+        this.y = next.y;
+    }
+    kill() {
+        this.alive = false;
+    }
+    markBombPlaced() {
+        this.bombsPlaced++;
+    }
+    markCellDestroyed() {
+        this.cellsDestroyed++;
+    }
+    increaseBlastRange(amount = 1) {
+        this.blastRangeBonus += amount;
+    }
+    increaseBombCapacity(amount = 1) {
+        this.bombCapacityBonus += amount;
+    }
+    increaseSpeed(amount) {
+        this.speedBonus += amount;
+    }
+    enableBombKick() {
+        this.canKickBombs = true;
+    }
+    canPlaceBomb(store) {
+        const gameState = _core_state__WEBPACK_IMPORTED_MODULE_4__.GameState.from(store);
+        return (this.alive &&
+            (0,_core_board__WEBPACK_IMPORTED_MODULE_3__.isEmptyCell)(store, this) &&
+            !gameState.findBombAt(this) &&
+            gameState.activeBombsOwnedBy(this.id).length < this.bombLimit);
+    }
+    placeBomb(store) {
+        if (!this.canPlaceBomb(store))
+            return;
+        const gameState = _core_state__WEBPACK_IMPORTED_MODULE_4__.GameState.from(store);
+        const bomb = new _bomb__WEBPACK_IMPORTED_MODULE_1__.Bomb(gameState.nextBombId(), this.id, this.x, this.y, this.blastRange, _core_constants__WEBPACK_IMPORTED_MODULE_0__.BOMB_FUSE_FRAMES, false);
+        gameState.addBomb(bomb);
+        this.markBombPlaced();
+    }
+    kickBomb(store, bomb, direction) {
+        if (!this.canKickBombs)
+            return false;
+        if (!this.isBombInKickDirection(bomb, direction))
+            return false;
+        return bomb.kick(store, direction);
+    }
+    isBombInKickDirection(bomb, direction) {
+        const vector = _core_board__WEBPACK_IMPORTED_MODULE_3__.DIRECTIONS.find((candidate) => candidate.direction === direction);
+        return Boolean(vector && bomb.x === this.x + vector.x && bomb.y === this.y + vector.y);
+    }
+    isInOwnFutureBlast(store, position) {
+        return _bomb__WEBPACK_IMPORTED_MODULE_1__.Bomb.threateningAt(store, position, this.id).length > 0;
+    }
+    isOwnExplosionDangerCell(store, position) {
+        return _explosion__WEBPACK_IMPORTED_MODULE_2__.Explosion.isActiveAt(store, position, this.id) || this.isInOwnFutureBlast(store, position);
+    }
+    isSafeStandingCell(store, position) {
+        return ((0,_core_board__WEBPACK_IMPORTED_MODULE_3__.isEmptyCell)(store, position) &&
+            !_bomb__WEBPACK_IMPORTED_MODULE_1__.Bomb.findAt(store, position) &&
+            !_explosion__WEBPACK_IMPORTED_MODULE_2__.Explosion.isActiveAt(store, position) &&
+            !this.isInOwnFutureBlast(store, position));
+    }
+    bombWouldHitOpponent(store) {
+        return this.previewBomb.wouldHitOpponent(store);
+    }
+    bombWouldHitTarget(store) {
+        return this.previewBomb.wouldHitTarget(store);
+    }
+}
+
+
+/***/ },
+
+/***/ "./src/bomberman/index.ts"
 /*!********************************!*\
   !*** ./src/bomberman/index.ts ***!
   \********************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -1142,7 +2018,7 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 class BombermanRenderer {
     constructor(conf) {
-        this.conf = Object.assign({}, conf);
+        this.conf = conf;
     }
     start() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -1155,10 +2031,9 @@ class BombermanRenderer {
                 pointsIncreasedCallback: (_) => { },
                 githubSettings: { accessToken: '' }
             };
-            this.store = JSON.parse(JSON.stringify(_core_store__WEBPACK_IMPORTED_MODULE_3__.Store));
+            this.store = JSON.parse(JSON.stringify(_core_store__WEBPACK_IMPORTED_MODULE_3__.storeTemplate));
             this.store.config = Object.assign(Object.assign({}, defaultConfig), this.conf);
             this.store.contributions = yield _shared_providers_providers__WEBPACK_IMPORTED_MODULE_0__.Providers.fetchContributions(this.store);
-            _shared_utils_utils__WEBPACK_IMPORTED_MODULE_1__.Utils.buildGrid(this.store);
             _shared_utils_utils__WEBPACK_IMPORTED_MODULE_1__.Utils.buildMonthLabels(this.store);
             yield _core_game__WEBPACK_IMPORTED_MODULE_2__.Game.startGame(this.store);
             return this.store;
@@ -1170,20 +2045,23 @@ class BombermanRenderer {
 }
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/bomberman/renderers/animation.ts":
+/***/ "./src/bomberman/renderers/animation.ts"
 /*!**********************************************!*\
   !*** ./src/bomberman/renderers/animation.ts ***!
   \**********************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   appendFinalKeyframe: () => (/* binding */ appendFinalKeyframe),
 /* harmony export */   appendKeyframe: () => (/* binding */ appendKeyframe),
 /* harmony export */   buildChangingValuesAnimation: () => (/* binding */ buildChangingValuesAnimation),
+/* harmony export */   buildFrameValueAnimation: () => (/* binding */ buildFrameValueAnimation),
 /* harmony export */   buildStepwiseLinearAnimation: () => (/* binding */ buildStepwiseLinearAnimation),
+/* harmony export */   buildValueWindowAnimation: () => (/* binding */ buildValueWindowAnimation),
+/* harmony export */   buildVisibilityAnimation: () => (/* binding */ buildVisibilityAnimation),
 /* harmony export */   frameToKeyTime: () => (/* binding */ frameToKeyTime)
 /* harmony export */ });
 /* harmony import */ var _core_constants__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../core/constants */ "./src/bomberman/core/constants.ts");
@@ -1211,6 +2089,47 @@ const buildChangingValuesAnimation = (values) => {
         values: keyValues.join(';')
     };
 };
+const buildFrameValueAnimation = (totalFrames, initialValue, changes) => {
+    if (totalFrames <= 1 || changes.length === 0)
+        return null;
+    const keyTimes = [0];
+    const values = [initialValue];
+    for (const change of changes) {
+        appendKeyframe(keyTimes, values, frameToKeyTime(change.frameIndex, totalFrames), change.value);
+    }
+    appendFinalKeyframe(keyTimes, values);
+    if (values.length <= 1 || values.every((value) => value === values[0]))
+        return null;
+    return {
+        keyTimes: keyTimes.join(';'),
+        values: values.join(';')
+    };
+};
+const buildValueWindowAnimation = (totalFrames, startFrame, endFrameExclusive, activeValue, inactiveValue = '0', omitFullWindow = false) => {
+    if (totalFrames <= 1 || (omitFullWindow && startFrame === 0 && endFrameExclusive >= totalFrames))
+        return null;
+    const start = frameToKeyTime(startFrame, totalFrames);
+    const end = frameToKeyTime(endFrameExclusive, totalFrames);
+    if (start >= end)
+        return null;
+    const keyTimes = start === 0 ? [0] : [0, start];
+    const values = start === 0 ? [activeValue] : [inactiveValue, activeValue];
+    if (end < 1) {
+        keyTimes.push(end, 1);
+        values.push(inactiveValue, inactiveValue);
+    }
+    else {
+        keyTimes.push(1);
+        values.push(activeValue);
+    }
+    if (values.length <= 1 || values.every((value) => value === values[0]))
+        return null;
+    return {
+        keyTimes: keyTimes.join(';'),
+        values: values.join(';')
+    };
+};
+const buildVisibilityAnimation = (totalFrames, startFrame, endFrameExclusive) => buildValueWindowAnimation(totalFrames, startFrame, endFrameExclusive, '1', '0', true);
 const buildStepwiseLinearAnimation = (values) => {
     const totalFrames = values.length;
     if (totalFrames <= 1)
@@ -1251,201 +2170,221 @@ const appendFinalKeyframe = (keyTimes, values) => {
         values.push(values[values.length - 1]);
     }
 };
-const frameToKeyTime = (frameIndex, totalFrames) => Number((Math.min(frameIndex, Math.max(totalFrames - 1, 1)) / Math.max(totalFrames - 1, 1)).toFixed(_core_constants__WEBPACK_IMPORTED_MODULE_0__.BOMBERMAN_SVG.PRECISION));
+const frameToKeyTime = (frameIndex, totalFrames) => Number((Math.min(frameIndex, Math.max(totalFrames - 1, 1)) / Math.max(totalFrames - 1, 1)).toFixed(_core_constants__WEBPACK_IMPORTED_MODULE_0__.SVG.PRECISION));
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/bomberman/renderers/svg.ts":
+/***/ "./src/bomberman/renderers/svg.ts"
 /*!****************************************!*\
   !*** ./src/bomberman/renderers/svg.ts ***!
   \****************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   Renderer: () => (/* binding */ Renderer)
 /* harmony export */ });
 /* harmony import */ var _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../shared/utils/utils */ "./src/shared/utils/utils.ts");
-/* harmony import */ var _core_constants__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../core/constants */ "./src/bomberman/core/constants.ts");
-/* harmony import */ var _animation__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./animation */ "./src/bomberman/renderers/animation.ts");
+/* harmony import */ var _entities_item__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../entities/item */ "./src/bomberman/entities/item.ts");
+/* harmony import */ var _core_constants__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../core/constants */ "./src/bomberman/core/constants.ts");
+/* harmony import */ var _animation__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./animation */ "./src/bomberman/renderers/animation.ts");
 
 
 
-const EXPLOSION_SPRITE_SIZE = _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE * _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.EXPLOSION_SPRITE_CELL_SPAN + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE * _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.EXPLOSION_SPRITE_GAP_SPAN;
-const PLAYER_SPRITE_CHAINS = {
-    1: {
-        down: [
-            { id: 'bm-player-1-down-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkDown0 },
-            { id: 'bm-player-1-down-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkDown1 },
-            { id: 'bm-player-1-down-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkDown2 },
-            { id: 'bm-player-1-down-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkDown3 }
-        ],
-        up: [
-            { id: 'bm-player-1-up-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkUp0 },
-            { id: 'bm-player-1-up-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkUp1 },
-            { id: 'bm-player-1-up-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkUp2 },
-            { id: 'bm-player-1-up-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkUp3 }
-        ],
-        left: [
-            { id: 'bm-player-1-left-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight0, flipX: true },
-            { id: 'bm-player-1-left-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight1, flipX: true },
-            { id: 'bm-player-1-left-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight2, flipX: true },
-            { id: 'bm-player-1-left-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight3, flipX: true },
-            { id: 'bm-player-1-left-4', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight4, flipX: true },
-            { id: 'bm-player-1-left-5', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight5, flipX: true }
-        ],
-        right: [
-            { id: 'bm-player-1-right-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight0 },
-            { id: 'bm-player-1-right-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight1 },
-            { id: 'bm-player-1-right-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight2 },
-            { id: 'bm-player-1-right-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight3 },
-            { id: 'bm-player-1-right-4', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight4 },
-            { id: 'bm-player-1-right-5', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.walkRight5 }
-        ]
-    },
-    2: {
-        down: [
-            { id: 'bm-player-2-down-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkDown0 },
-            { id: 'bm-player-2-down-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkDown1 },
-            { id: 'bm-player-2-down-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkDown2 },
-            { id: 'bm-player-2-down-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkDown3 }
-        ],
-        up: [
-            { id: 'bm-player-2-up-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkUp0 },
-            { id: 'bm-player-2-up-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkUp1 },
-            { id: 'bm-player-2-up-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkUp2 },
-            { id: 'bm-player-2-up-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkUp3 }
-        ],
-        left: [
-            { id: 'bm-player-2-left-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight0, flipX: true },
-            { id: 'bm-player-2-left-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight1, flipX: true },
-            { id: 'bm-player-2-left-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight2, flipX: true },
-            { id: 'bm-player-2-left-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight3, flipX: true },
-            { id: 'bm-player-2-left-4', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight4, flipX: true },
-            { id: 'bm-player-2-left-5', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight5, flipX: true }
-        ],
-        right: [
-            { id: 'bm-player-2-right-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight0 },
-            { id: 'bm-player-2-right-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight1 },
-            { id: 'bm-player-2-right-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight2 },
-            { id: 'bm-player-2-right-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight3 },
-            { id: 'bm-player-2-right-4', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight4 },
-            { id: 'bm-player-2-right-5', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.walkRight5 }
-        ]
+
+class MonthLabelsLayerRenderer {
+    render({ store, theme }) {
+        let svg = '';
+        let lastMonth = '';
+        for (let x = 0; x < _core_constants__WEBPACK_IMPORTED_MODULE_2__.GRID_WIDTH; x++) {
+            if (store.monthLabels[x] === lastMonth)
+                continue;
+            const xPos = x * (_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_2__.GAP_SIZE) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2;
+            svg += `<text x="${xPos}" y="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.MONTH_LABEL_Y}" text-anchor="middle" font-size="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.MONTH_LABEL_FONT_SIZE}" fill="${theme.textColor}">${store.monthLabels[x]}</text>`;
+            lastMonth = store.monthLabels[x];
+        }
+        return svg;
     }
+}
+class GridLayerRenderer {
+    render({ store, theme, cellEventsByPosition, totalDurationMs }) {
+        var _a, _b;
+        let svg = '';
+        for (let x = 0; x < _core_constants__WEBPACK_IMPORTED_MODULE_2__.GRID_WIDTH; x++) {
+            for (let y = 0; y < _core_constants__WEBPACK_IMPORTED_MODULE_2__.GRID_HEIGHT; y++) {
+                const colorAnim = getCellAnimationData(store, x, y, cellEventsByPosition);
+                svg += `<rect id="c-${x}-${y}" x="${toSvgX(x)}" y="${toSvgY(y)}" width="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE}" height="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE}" rx="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.CELL_RADIUS}" fill="${(_b = (_a = store.initialColors[x]) === null || _a === void 0 ? void 0 : _a[y]) !== null && _b !== void 0 ? _b : theme.intensityColors[0]}">`;
+                if (colorAnim) {
+                    svg += `<animate attributeName="fill" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite" values="${colorAnim.values}" keyTimes="${colorAnim.keyTimes}"/>`;
+                }
+                svg += `</rect>`;
+            }
+        }
+        return svg;
+    }
+}
+class BombLayerRenderer {
+    render({ store, totalDurationMs }) {
+        let svg = '';
+        const totalFrames = store.gameHistory.length;
+        for (const { bomb, startFrame, endFrameExclusive, positions } of collectBombs(store)) {
+            const opacityAnim = (0,_animation__WEBPACK_IMPORTED_MODULE_3__.buildVisibilityAnimation)(totalFrames, startFrame, endFrameExclusive);
+            const initialOpacity = startFrame === 0 ? '1' : '0';
+            svg += `<g id="bomb-${bomb.id}" opacity="${initialOpacity}">`;
+            if (opacityAnim) {
+                svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite" keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
+            }
+            svg += renderBombPulse(positions, totalDurationMs);
+            svg += `</g>`;
+        }
+        return svg;
+    }
+}
+class ItemLayerRenderer {
+    render({ store, totalDurationMs }) {
+        let svg = '';
+        const totalFrames = store.gameHistory.length;
+        for (const { item, startFrame, endFrameExclusive } of collectItems(store)) {
+            const opacityAnim = (0,_animation__WEBPACK_IMPORTED_MODULE_3__.buildVisibilityAnimation)(totalFrames, startFrame, endFrameExclusive);
+            const x = toSvgX(item.x) + (_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE - _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.ITEM_WIDTH) / 2;
+            const y = toSvgY(item.y) + (_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE - _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.ITEM_HEIGHT) / 2;
+            svg += `<use id="item-${item.id}" x="${x}" y="${y}" width="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.ITEM_WIDTH}" height="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.ITEM_HEIGHT}" href="${getItemRef(item.type)}" opacity="${startFrame === 0 ? '1' : '0'}">`;
+            if (opacityAnim) {
+                svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite" keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
+            }
+            svg += `</use>`;
+        }
+        return svg;
+    }
+}
+class ExplosionLayerRenderer {
+    render({ store, totalDurationMs }) {
+        let svg = '';
+        for (const explosion of store.explosionEvents) {
+            svg += renderExplosionAnimation(store, explosion, totalDurationMs);
+        }
+        return svg;
+    }
+}
+class PlayerLayerRenderer {
+    render({ store, totalDurationMs }) {
+        var _a, _b, _c;
+        let svg = '';
+        for (const player of store.players) {
+            const { positions, opacities, spriteRefs } = getPlayerTimeline(store, player.id);
+            const positionAnim = (0,_animation__WEBPACK_IMPORTED_MODULE_3__.buildStepwiseLinearAnimation)(positions);
+            const opacityAnim = (0,_animation__WEBPACK_IMPORTED_MODULE_3__.buildChangingValuesAnimation)(opacities);
+            const spriteAnim = (0,_animation__WEBPACK_IMPORTED_MODULE_3__.buildChangingValuesAnimation)(spriteRefs);
+            svg += `<use id="player-${player.id}" x="${-_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.PLAYER_SPRITE_WIDTH / 2}" y="${-_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.PLAYER_SPRITE_HEIGHT + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2}" width="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.PLAYER_SPRITE_WIDTH}" height="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.PLAYER_SPRITE_HEIGHT}" href="${(_a = spriteRefs[0]) !== null && _a !== void 0 ? _a : getDefaultPlayerRef(player.id)}" opacity="${(_b = opacities[0]) !== null && _b !== void 0 ? _b : '0'}" transform="translate(${(_c = positions[0]) !== null && _c !== void 0 ? _c : '0 0'})">`;
+            if (spriteAnim) {
+                svg += `<animate attributeName="href" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite" keyTimes="${spriteAnim.keyTimes}" values="${spriteAnim.values}"/>`;
+            }
+            if (opacityAnim) {
+                svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite" keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
+            }
+            if (positionAnim) {
+                svg += `<animateTransform attributeName="transform" type="translate" calcMode="linear" dur="${totalDurationMs}ms" repeatCount="indefinite" keyTimes="${positionAnim.keyTimes}" values="${positionAnim.values}"/>`;
+            }
+            svg += `</use>`;
+        }
+        return svg;
+    }
+}
+const SVG_LAYERS = [
+    new MonthLabelsLayerRenderer(),
+    new GridLayerRenderer(),
+    new BombLayerRenderer(),
+    new ItemLayerRenderer(),
+    new ExplosionLayerRenderer(),
+    new PlayerLayerRenderer()
+];
+const createPlayerChains = (playerId, spriteSet) => {
+    const createChain = (prefix, frames, flipX = false) => frames.map((frame, i) => ({ id: `bm-player-${playerId}-${prefix}-${i}`, frame, flipX }));
+    return {
+        down: createChain('down', [spriteSet.walkDown0, spriteSet.walkDown1, spriteSet.walkDown2, spriteSet.walkDown3]),
+        up: createChain('up', [spriteSet.walkUp0, spriteSet.walkUp1, spriteSet.walkUp2, spriteSet.walkUp3]),
+        left: createChain('left', [
+            spriteSet.walkRight0,
+            spriteSet.walkRight1,
+            spriteSet.walkRight2,
+            spriteSet.walkRight3,
+            spriteSet.walkRight4,
+            spriteSet.walkRight5
+        ], true),
+        right: createChain('right', [
+            spriteSet.walkRight0,
+            spriteSet.walkRight1,
+            spriteSet.walkRight2,
+            spriteSet.walkRight3,
+            spriteSet.walkRight4,
+            spriteSet.walkRight5
+        ])
+    };
+};
+const PLAYER_SPRITE_CHAINS = {
+    1: createPlayerChains(1, _core_constants__WEBPACK_IMPORTED_MODULE_2__.SPRITE_SETS.player),
+    2: createPlayerChains(2, _core_constants__WEBPACK_IMPORTED_MODULE_2__.SPRITE_SETS.plunderBomber)
 };
 const PLAYER_DEATH_SPRITE_CHAINS = {
     1: [
-        { id: 'bm-player-1-death-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.death0 },
-        { id: 'bm-player-1-death-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.death1 },
-        { id: 'bm-player-1-death-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.death2 },
-        { id: 'bm-player-1-death-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.death3 },
-        { id: 'bm-player-1-death-4', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.player.death4 }
-    ],
+        _core_constants__WEBPACK_IMPORTED_MODULE_2__.SPRITE_SETS.player.death0,
+        _core_constants__WEBPACK_IMPORTED_MODULE_2__.SPRITE_SETS.player.death1,
+        _core_constants__WEBPACK_IMPORTED_MODULE_2__.SPRITE_SETS.player.death2,
+        _core_constants__WEBPACK_IMPORTED_MODULE_2__.SPRITE_SETS.player.death3,
+        _core_constants__WEBPACK_IMPORTED_MODULE_2__.SPRITE_SETS.player.death4
+    ].map((frame, i) => ({ id: `bm-player-1-death-${i}`, frame })),
     2: [
-        { id: 'bm-player-2-death-0', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.death0 },
-        { id: 'bm-player-2-death-1', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.death1 },
-        { id: 'bm-player-2-death-2', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.death2 },
-        { id: 'bm-player-2-death-3', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.plunderBomber.death3 }
-    ]
+        _core_constants__WEBPACK_IMPORTED_MODULE_2__.SPRITE_SETS.plunderBomber.death0,
+        _core_constants__WEBPACK_IMPORTED_MODULE_2__.SPRITE_SETS.plunderBomber.death1,
+        _core_constants__WEBPACK_IMPORTED_MODULE_2__.SPRITE_SETS.plunderBomber.death2,
+        _core_constants__WEBPACK_IMPORTED_MODULE_2__.SPRITE_SETS.plunderBomber.death3
+    ].map((frame, i) => ({ id: `bm-player-2-death-${i}`, frame }))
 };
-const BOMB_SPRITE = { id: 'bm-bomb', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.explosions.bombs.fuse0 };
-const EXPLOSION_SPRITE_CHAIN = [
-    { id: 'bm-explosion-thin-left', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.explosions.crosses.thinLeft },
-    { id: 'bm-explosion-full-left', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.explosions.crosses.fullLeft },
-    { id: 'bm-explosion-full-right', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.explosions.crosses.fullRight },
-    { id: 'bm-explosion-thin-right', frame: _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SPRITE_SETS.explosions.crosses.thinRight }
-];
-const toSvgX = (gx) => gx * (_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE);
-const toSvgY = (gy) => gy * (_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.HEADER_HEIGHT;
+const BOMB_SPRITE = { id: 'bm-bomb', frame: _core_constants__WEBPACK_IMPORTED_MODULE_2__.SPRITE_SETS.explosions.bombs.fuse0 };
+const BLAST_SPRITES = {
+    center: _core_constants__WEBPACK_IMPORTED_MODULE_2__.SPRITE_SETS.explosions.blast.center.map((frame, index) => ({
+        id: `bm-blast-center-${index}`,
+        frame,
+        preserveAspectRatio: 'none'
+    })),
+    segment: _core_constants__WEBPACK_IMPORTED_MODULE_2__.SPRITE_SETS.explosions.blast.segment.map((frame, index) => ({
+        id: `bm-blast-segment-${index}`,
+        frame,
+        preserveAspectRatio: 'none'
+    })),
+    end: _core_constants__WEBPACK_IMPORTED_MODULE_2__.SPRITE_SETS.explosions.blast.end.map((frame, index) => ({
+        id: `bm-blast-end-${index}`,
+        frame,
+        preserveAspectRatio: 'none'
+    }))
+};
+const ITEM_SPRITES = Object.fromEntries(Object.entries(_entities_item__WEBPACK_IMPORTED_MODULE_1__.ITEM_DEFINITIONS).map(([type, definition]) => [type, { id: `bm-item-${type}`, frame: definition.sprite }]));
+const toSvgX = (gx) => gx * (_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_2__.GAP_SIZE);
+const toSvgY = (gy) => gy * (_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_2__.GAP_SIZE) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.HEADER_HEIGHT;
 const generateAnimatedSVG = (store) => {
-    var _a, _b, _c, _d, _e;
-    const svgWidth = _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH * (_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE);
-    const svgHeight = _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_HEIGHT * (_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.HEADER_HEIGHT;
+    const svgWidth = _core_constants__WEBPACK_IMPORTED_MODULE_2__.GRID_WIDTH * (_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_2__.GAP_SIZE);
+    const svgHeight = _core_constants__WEBPACK_IMPORTED_MODULE_2__.GRID_HEIGHT * (_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_2__.GAP_SIZE) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.HEADER_HEIGHT;
     const totalFrames = store.gameHistory.length;
-    const totalDurationMs = Math.max((totalFrames * _core_constants__WEBPACK_IMPORTED_MODULE_1__.DELTA_TIME) / _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.DURATION_SPEED_DIVISOR, _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.MIN_DURATION_MS);
+    const totalDurationMs = Math.max((totalFrames * _core_constants__WEBPACK_IMPORTED_MODULE_2__.DELTA_TIME) / _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.DURATION_SPEED_DIVISOR, _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.MIN_DURATION_MS);
     const theme = _shared_utils_utils__WEBPACK_IMPORTED_MODULE_0__.Utils.getCurrentTheme(store);
     const cellEventsByPosition = indexCellEvents(store.cellEvents);
+    const context = { store, theme, cellEventsByPosition, totalDurationMs };
     let svg = `<svg width="${svgWidth}" height="${svgHeight}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" color-interpolation="sRGB">`;
     svg += `<style>image { image-rendering: pixelated; image-rendering: -moz-crisp-edges; }</style>`;
-    svg += buildSpriteDefs();
+    svg += buildSpriteDefs(store);
     svg += `<rect width="100%" height="100%" fill="${theme.gridBackground}"/>`;
-    let lastMonth = '';
-    for (let x = 0; x < _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH; x++) {
-        if (store.monthLabels[x] !== lastMonth) {
-            const xPos = x * (_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_1__.GAP_SIZE) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE / 2;
-            svg += `<text x="${xPos}" y="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.MONTH_LABEL_Y}" text-anchor="middle" font-size="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.MONTH_LABEL_FONT_SIZE}" fill="${theme.textColor}">${store.monthLabels[x]}</text>`;
-            lastMonth = store.monthLabels[x];
-        }
-    }
-    for (let x = 0; x < _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_WIDTH; x++) {
-        for (let y = 0; y < _core_constants__WEBPACK_IMPORTED_MODULE_1__.GRID_HEIGHT; y++) {
-            const colorAnim = getCellAnimationData(store, x, y, cellEventsByPosition);
-            svg += `<rect id="c-${x}-${y}" x="${toSvgX(x)}" y="${toSvgY(y)}" width="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE}" height="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE}" rx="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.CELL_RADIUS}" fill="${(_b = (_a = store.initialColors[x]) === null || _a === void 0 ? void 0 : _a[y]) !== null && _b !== void 0 ? _b : theme.intensityColors[0]}">`;
-            if (colorAnim) {
-                svg += `<animate attributeName="fill" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
-					values="${colorAnim.values}" keyTimes="${colorAnim.keyTimes}"/>`;
-            }
-            svg += `</rect>`;
-        }
-    }
-    for (const bombEvent of collectBombs(store)) {
-        const opacityAnim = buildVisibilityAnimation(totalFrames, bombEvent.startFrame, bombEvent.endFrameExclusive);
-        const initialOpacity = bombEvent.startFrame === 0 ? '1' : '0';
-        svg += `<g id="bomb-${bombEvent.bomb.id}" opacity="${initialOpacity}" transform="translate(${centerPosition(bombEvent.bomb.x, bombEvent.bomb.y)})" style="will-change: opacity;">`;
-        if (opacityAnim) {
-            svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
-				keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
-        }
-        svg += `<use x="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.BOMB_X}" y="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.BOMB_Y}" width="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.BOMB_WIDTH}" height="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.BOMB_HEIGHT}" href="${getDefaultBombRef()}" style="will-change: transform;">
-			<animateTransform attributeName="transform" type="scale" calcMode="linear" dur="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.BOMB_PULSE_DURATION_MS}ms" repeatCount="indefinite"
-				keyTimes="0;0.5;1" values="1;${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.BOMB_PULSE_SCALE};1"/>
-		</use></g>`;
-    }
-    for (const explosion of store.explosionEvents) {
-        const opacityAnim = getExplosionOpacityAnimation(store, explosion);
-        const spriteAnim = getExplosionSpriteAnimation(store, explosion);
-        const cx = toSvgX(explosion.x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE / 2;
-        const cy = toSvgY(explosion.y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE / 2;
-        const x = cx - EXPLOSION_SPRITE_SIZE / 2;
-        const y = cy - EXPLOSION_SPRITE_SIZE / 2;
-        svg += `<use x="${x}" y="${y}" width="${EXPLOSION_SPRITE_SIZE}" height="${EXPLOSION_SPRITE_SIZE}" href="${getDefaultExplosionRef()}" opacity="0" style="will-change: opacity;">`;
-        if (spriteAnim) {
-            svg += `<animate attributeName="href" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
-				keyTimes="${spriteAnim.keyTimes}" values="${spriteAnim.values}"/>`;
-        }
-        if (opacityAnim) {
-            svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
-				keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
-        }
-        svg += `</use>`;
-    }
-    for (const player of store.players) {
-        const positions = getPlayerPositions(store, player.id);
-        const opacities = getPlayerOpacities(store, player.id);
-        const spriteRefs = getPlayerSpriteRefs(store, player.id);
-        const positionAnim = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.buildStepwiseLinearAnimation)(positions);
-        const opacityAnim = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.buildChangingValuesAnimation)(opacities);
-        const spriteAnim = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.buildChangingValuesAnimation)(spriteRefs);
-        svg += `<use id="player-${player.id}" x="${-_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.PLAYER_SPRITE_WIDTH / 2}" y="${-_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.PLAYER_SPRITE_HEIGHT + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE / 2}" width="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.PLAYER_SPRITE_WIDTH}" height="${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.PLAYER_SPRITE_HEIGHT}" href="${(_c = spriteRefs[0]) !== null && _c !== void 0 ? _c : getDefaultPlayerRef(player.id)}" opacity="${(_d = opacities[0]) !== null && _d !== void 0 ? _d : '0'}" transform="translate(${(_e = positions[0]) !== null && _e !== void 0 ? _e : '0 0'})" style="will-change: transform, opacity;">`;
-        if (spriteAnim) {
-            svg += `<animate attributeName="href" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
-				keyTimes="${spriteAnim.keyTimes}" values="${spriteAnim.values}"/>`;
-        }
-        if (opacityAnim) {
-            svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite"
-				keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
-        }
-        if (positionAnim) {
-            svg += `<animateTransform attributeName="transform" type="translate" calcMode="linear" dur="${totalDurationMs}ms" repeatCount="indefinite"
-				keyTimes="${positionAnim.keyTimes}" values="${positionAnim.values}"/>`;
-        }
-        svg += `</use>`;
+    for (const layer of SVG_LAYERS) {
+        svg += layer.render(context);
     }
     svg += '</svg>';
-    return svg;
+    return minifySvg(svg);
 };
+const minifySvg = (svg) => svg
+    .replace(/>\s+</g, '><')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s\/>/g, '/>')
+    .trim();
 const getCellAnimationData = (store, x, y, eventsByPosition) => {
     var _a, _b;
     const totalFrames = store.gameHistory.length;
@@ -1453,80 +2392,128 @@ const getCellAnimationData = (store, x, y, eventsByPosition) => {
     const events = eventsByPosition.get(cellEventKey(x, y));
     if (!events || events.length === 0)
         return null;
-    const keyTimes = [0];
-    const values = [initialColor];
-    for (const event of events) {
-        const time = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.frameToKeyTime)(event.frameIndex, totalFrames);
-        if (time !== keyTimes[keyTimes.length - 1]) {
-            keyTimes.push(time);
-            values.push(event.color);
-        }
-        else {
-            values[values.length - 1] = event.color;
-        }
-    }
-    if (keyTimes[keyTimes.length - 1] !== 1) {
-        keyTimes.push(1);
-        values.push(values[values.length - 1]);
-    }
-    if (values.length <= 1 || values.every((v) => v === values[0]))
-        return null;
-    return { keyTimes: keyTimes.join(';'), values: values.join(';') };
+    return (0,_animation__WEBPACK_IMPORTED_MODULE_3__.buildFrameValueAnimation)(totalFrames, initialColor, events.map((event) => ({ frameIndex: event.frameIndex, value: event.color })));
 };
 const collectBombs = (store) => {
+    var _a, _b;
     const bombs = new Map();
+    const totalFrames = store.gameHistory.length;
     for (let frameIndex = 0; frameIndex < store.gameHistory.length; frameIndex++) {
         const frame = store.gameHistory[frameIndex];
         for (const bomb of frame.bombs) {
             const existing = bombs.get(bomb.id);
             if (existing) {
                 existing.endFrameExclusive = frameIndex + 1;
+                existing.positions[frameIndex] = centerPosition(bomb.x, bomb.y);
             }
             else {
+                const position = getInitialBombRenderPosition(bomb);
+                const positions = Array(totalFrames);
+                positions[frameIndex] = position;
                 bombs.set(bomb.id, {
                     bomb,
+                    startFrame: frameIndex,
+                    endFrameExclusive: frameIndex + 1,
+                    positions
+                });
+            }
+        }
+    }
+    for (const event of bombs.values()) {
+        let lastPosition = (_a = event.positions[event.startFrame]) !== null && _a !== void 0 ? _a : centerPosition(event.bomb.x, event.bomb.y);
+        for (let frameIndex = 0; frameIndex < event.startFrame; frameIndex++) {
+            event.positions[frameIndex] = lastPosition;
+        }
+        for (let frameIndex = event.startFrame; frameIndex < totalFrames; frameIndex++) {
+            lastPosition = (_b = event.positions[frameIndex]) !== null && _b !== void 0 ? _b : lastPosition;
+            event.positions[frameIndex] = lastPosition;
+        }
+    }
+    return Array.from(bombs.values());
+};
+const getInitialBombRenderPosition = (bomb) => {
+    if (!bomb.kickDirection)
+        return centerPosition(bomb.x, bomb.y);
+    const source = getKickSourcePosition(bomb, bomb.kickDirection);
+    if (source.x < 0 || source.x >= _core_constants__WEBPACK_IMPORTED_MODULE_2__.GRID_WIDTH || source.y < 0 || source.y >= _core_constants__WEBPACK_IMPORTED_MODULE_2__.GRID_HEIGHT) {
+        return centerPosition(bomb.x, bomb.y);
+    }
+    return centerPosition(source.x, source.y);
+};
+const getKickSourcePosition = (bomb, kickDirection) => {
+    const vector = KICK_SOURCE_OFFSETS[kickDirection];
+    return {
+        x: bomb.x + vector.x,
+        y: bomb.y + vector.y
+    };
+};
+const KICK_SOURCE_OFFSETS = {
+    up: { x: 0, y: 1 },
+    down: { x: 0, y: -1 },
+    left: { x: 1, y: 0 },
+    right: { x: -1, y: 0 }
+};
+const collectItems = (store) => {
+    const items = new Map();
+    for (let frameIndex = 0; frameIndex < store.gameHistory.length; frameIndex++) {
+        const frame = store.gameHistory[frameIndex];
+        for (const item of frame.items) {
+            if (item.hidden || item.collected || item.destroyed)
+                continue;
+            const existing = items.get(item.id);
+            if (existing) {
+                existing.endFrameExclusive = frameIndex + 1;
+            }
+            else {
+                items.set(item.id, {
+                    item,
                     startFrame: frameIndex,
                     endFrameExclusive: frameIndex + 1
                 });
             }
         }
     }
-    return Array.from(bombs.values());
+    return Array.from(items.values());
 };
-const getPlayerPositions = (store, playerId) => store.gameHistory.map((frame) => {
-    const player = frame.players.find((candidate) => candidate.id === playerId);
-    return player ? centerPosition(player.x, player.y) : '0 0';
-});
-const getPlayerSpriteRefs = (store, playerId) => store.gameHistory.map((frame, frameIndex) => {
-    const player = frame.players.find((candidate) => candidate.id === playerId);
-    if (!player)
-        return getDefaultPlayerRef(playerId);
-    if (!player.alive) {
-        const deathFrameIndex = getPlayerDeathFrameIndex(store, playerId);
-        if (deathFrameIndex !== null) {
-            const chain = PLAYER_DEATH_SPRITE_CHAINS[playerId];
-            const spriteIndex = Math.min(Math.max(frameIndex - deathFrameIndex, 0), chain.length - 1);
-            return toSpriteRef(chain[spriteIndex]);
-        }
-    }
-    const previousPlayer = frameIndex > 0 ? store.gameHistory[frameIndex - 1].players.find((candidate) => candidate.id === playerId) : undefined;
-    const moving = Boolean(previousPlayer && (previousPlayer.x !== player.x || previousPlayer.y !== player.y));
-    const cycle = PLAYER_SPRITE_CHAINS[playerId][player.direction];
-    const spriteIndex = moving ? Math.floor(frameIndex / _core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.PLAYER_SPRITE_FRAME_INTERVAL) % cycle.length : 0;
-    return toSpriteRef(cycle[spriteIndex]);
-});
-const getPlayerOpacities = (store, playerId) => store.gameHistory.map((frame, frameIndex) => {
-    const player = frame.players.find((candidate) => candidate.id === playerId);
-    if (!player)
-        return '0';
-    if (player.alive)
-        return '1';
+const getPlayerTimeline = (store, playerId) => {
     const deathFrameIndex = getPlayerDeathFrameIndex(store, playerId);
-    if (deathFrameIndex === null)
-        return '0';
-    const deathFrame = frameIndex - deathFrameIndex;
-    return deathFrame >= 0 && deathFrame < PLAYER_DEATH_SPRITE_CHAINS[playerId].length ? '1' : '0';
-});
+    const positions = [];
+    const opacities = [];
+    const spriteRefs = [];
+    let previousPlayer;
+    store.gameHistory.forEach((frame, frameIndex) => {
+        const player = frame.players.find((candidate) => candidate.id === playerId);
+        positions.push(player ? centerPosition(player.x, player.y) : '0 0');
+        if (!player) {
+            opacities.push('0');
+            spriteRefs.push(getDefaultPlayerRef(playerId));
+            previousPlayer = undefined;
+            return;
+        }
+        if (player.alive) {
+            const moving = Boolean(previousPlayer && (previousPlayer.x !== player.x || previousPlayer.y !== player.y));
+            const cycle = PLAYER_SPRITE_CHAINS[playerId][player.direction];
+            const spriteIndex = moving ? Math.floor(frameIndex / _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.PLAYER_SPRITE_FRAME_INTERVAL) % cycle.length : 0;
+            opacities.push('1');
+            spriteRefs.push(toSpriteRef(cycle[spriteIndex]));
+            previousPlayer = player;
+            return;
+        }
+        if (deathFrameIndex === null) {
+            opacities.push('0');
+            spriteRefs.push(getDefaultPlayerRef(playerId));
+            previousPlayer = player;
+            return;
+        }
+        const deathFrame = frameIndex - deathFrameIndex;
+        const deathChain = PLAYER_DEATH_SPRITE_CHAINS[playerId];
+        const deathSpriteIndex = Math.min(Math.max(deathFrame, 0), deathChain.length - 1);
+        opacities.push(deathFrame >= 0 && deathFrame < deathChain.length ? '1' : '0');
+        spriteRefs.push(toSpriteRef(deathChain[deathSpriteIndex]));
+        previousPlayer = player;
+    });
+    return { positions, opacities, spriteRefs };
+};
 const getPlayerDeathFrameIndex = (store, playerId) => {
     for (let frameIndex = 1; frameIndex < store.gameHistory.length; frameIndex++) {
         const previousPlayer = store.gameHistory[frameIndex - 1].players.find((candidate) => candidate.id === playerId);
@@ -1536,41 +2523,243 @@ const getPlayerDeathFrameIndex = (store, playerId) => {
     }
     return null;
 };
-const centerPosition = (x, y) => `${toSvgX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE / 2} ${toSvgY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_1__.CELL_SIZE / 2}`;
-const getExplosionSpriteAnimation = (store, explosion) => {
+const centerPosition = (x, y) => `${toSvgX(x) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2} ${toSvgY(y) + _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2}`;
+const renderBombPulse = (positions, totalDurationMs) => {
+    const scaledWidth = Number((_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BOMB_WIDTH * _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BOMB_PULSE_SCALE).toFixed(_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.PRECISION));
+    const scaledHeight = Number((_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BOMB_HEIGHT * _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BOMB_PULSE_SCALE).toFixed(_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.PRECISION));
+    const scaledX = Number((_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BOMB_X - (scaledWidth - _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BOMB_WIDTH) / 2).toFixed(_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.PRECISION));
+    const scaledY = Number((_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BOMB_Y - (scaledHeight - _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BOMB_HEIGHT) / 2).toFixed(_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.PRECISION));
+    const ref = getDefaultBombRef();
+    const baseX = getOffsetPositionAnimation(positions, _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BOMB_X, 'x');
+    const baseY = getOffsetPositionAnimation(positions, _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BOMB_Y, 'y');
+    const scaledXAnim = getOffsetPositionAnimation(positions, scaledX, 'x');
+    const scaledYAnim = getOffsetPositionAnimation(positions, scaledY, 'y');
+    return [
+        `<use x="${baseX.initial}" y="${baseY.initial}" width="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BOMB_WIDTH}" height="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BOMB_HEIGHT}" href="${ref}" opacity="1">${renderPositionAttributeAnimation('x', baseX.animation, totalDurationMs)}${renderPositionAttributeAnimation('y', baseY.animation, totalDurationMs)}<animate attributeName="opacity" calcMode="discrete" dur="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BOMB_PULSE_DURATION_MS}ms" repeatCount="indefinite" keyTimes="0;0.5;1" values="1;0;1"/></use>`,
+        `<use x="${scaledXAnim.initial}" y="${scaledYAnim.initial}" width="${scaledWidth}" height="${scaledHeight}" href="${ref}" opacity="0">${renderPositionAttributeAnimation('x', scaledXAnim.animation, totalDurationMs)}${renderPositionAttributeAnimation('y', scaledYAnim.animation, totalDurationMs)}<animate attributeName="opacity" calcMode="discrete" dur="${_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BOMB_PULSE_DURATION_MS}ms" repeatCount="indefinite" keyTimes="0;0.5;1" values="0;1;0"/></use>`
+    ].join('');
+};
+const getOffsetPositionAnimation = (positions, offset, axis) => {
+    var _a;
+    const axisIndex = axis === 'x' ? 0 : 1;
+    const values = positions.map((position) => {
+        var _a;
+        const coordinate = Number((_a = position.split(' ')[axisIndex]) !== null && _a !== void 0 ? _a : 0);
+        return `${Number((coordinate + offset).toFixed(_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.PRECISION))}`;
+    });
+    return {
+        initial: (_a = values[0]) !== null && _a !== void 0 ? _a : `${offset}`,
+        animation: (0,_animation__WEBPACK_IMPORTED_MODULE_3__.buildChangingValuesAnimation)(values)
+    };
+};
+const renderPositionAttributeAnimation = (attributeName, animation, totalDurationMs) => animation
+    ? `<animate attributeName="${attributeName}" calcMode="linear" dur="${totalDurationMs}ms" repeatCount="indefinite" keyTimes="${animation.keyTimes}" values="${animation.values}"/>`
+    : '';
+const renderExplosionAnimation = (store, explosion, totalDurationMs) => {
     const totalFrames = store.gameHistory.length;
-    const keyTimes = [0];
-    const values = [getDefaultExplosionRef()];
-    const visibleFrames = Math.max(explosion.remainingFrames, 1);
-    for (let localFrame = 0; localFrame < visibleFrames; localFrame++) {
-        const frameIndex = explosion.frameIndex + localFrame;
-        const time = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.frameToKeyTime)(frameIndex, totalFrames);
-        const spriteIndex = Math.min(localFrame, EXPLOSION_SPRITE_CHAIN.length - 1);
-        (0,_animation__WEBPACK_IMPORTED_MODULE_2__.appendKeyframe)(keyTimes, values, time, toSpriteRef(EXPLOSION_SPRITE_CHAIN[spriteIndex]));
+    let svg = '';
+    for (let elapsedFrame = 0; elapsedFrame < explosion.remainingFrames; elapsedFrame++) {
+        const startFrame = explosion.frameIndex + elapsedFrame;
+        const endFrameExclusive = startFrame + 1;
+        if (startFrame >= totalFrames)
+            break;
+        const opacityAnim = (0,_animation__WEBPACK_IMPORTED_MODULE_3__.buildValueWindowAnimation)(totalFrames, startFrame, Math.min(endFrameExclusive, totalFrames), `${_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.EXPLOSION_OPACITY}`);
+        const initialOpacity = startFrame === 0 ? `${_core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.EXPLOSION_OPACITY}` : '0';
+        svg += `<g opacity="${initialOpacity}">`;
+        svg += `<use href="#${getExplosionShapeId(explosion, elapsedFrame)}" transform="translate(${centerPosition(explosion.x, explosion.y)})"/>`;
+        if (opacityAnim) {
+            svg += `<animate attributeName="opacity" calcMode="discrete" dur="${totalDurationMs}ms" repeatCount="indefinite" keyTimes="${opacityAnim.keyTimes}" values="${opacityAnim.values}"/>`;
+        }
+        svg += `</g>`;
     }
-    (0,_animation__WEBPACK_IMPORTED_MODULE_2__.appendFinalKeyframe)(keyTimes, values);
-    if (values.length <= 1 || values.every((v) => v === values[0]))
-        return null;
-    return { keyTimes: keyTimes.join(';'), values: values.join(';') };
+    return svg;
 };
-const getExplosionOpacityAnimation = (store, explosion) => {
-    const totalFrames = store.gameHistory.length;
-    const start = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.frameToKeyTime)(explosion.frameIndex, totalFrames);
-    const end = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.frameToKeyTime)(explosion.frameIndex + explosion.remainingFrames, totalFrames);
+const renderExplosionShape = (animation) => {
+    const { explosion } = animation;
+    const arms = getExplosionArmLengths(explosion);
+    const activeArms = [
+        ['left', arms.left],
+        ['right', arms.right],
+        ['up', arms.up],
+        ['down', arms.down]
+    ].filter(([, length]) => length > 0);
+    return [
+        ...activeArms.map(([direction, length]) => renderBlastArmBody(animation, direction, length)),
+        ...renderBlastCenterConnectors(animation, arms),
+        ...activeArms.map(([direction, length]) => {
+            const endPosition = getExplosionArmOffset(direction, length);
+            return renderBlastSprite('end', endPosition.x, endPosition.y, direction, animation);
+        }),
+        renderBlastSprite('center', 0, 0, 'right', animation)
+    ].join('');
+};
+const getExplosionArmOffset = (direction, distance) => {
+    switch (direction) {
+        case 'left':
+            return { x: -distance, y: 0 };
+        case 'right':
+            return { x: distance, y: 0 };
+        case 'up':
+            return { x: 0, y: -distance };
+        case 'down':
+            return { x: 0, y: distance };
+    }
+};
+const renderBlastSprite = (kind, x, y, direction, animation) => {
+    const placement = getBlastPlacement(kind, x, y, direction);
+    const rotation = placement.degrees === 0 ? '' : ` transform="rotate(${placement.degrees} ${placement.centerX} ${placement.centerY})"`;
+    return `<use x="${placement.x}" y="${placement.y}" width="${placement.width}" height="${placement.height}" href="${getStaticBlastRef(kind, animation)}"${rotation}/>`;
+};
+const renderBlastArmBody = (animation, direction, length) => {
+    const placement = getBlastArmBodyPlacement(direction, length);
+    const rotation = placement.degrees === 0 ? '' : ` transform="rotate(${placement.degrees} ${placement.centerX} ${placement.centerY})"`;
+    return `<use x="${placement.x}" y="${placement.y}" width="${placement.width}" height="${placement.height}" href="${getStaticBlastRef('segment', animation)}"${rotation}/>`;
+};
+const getBlastPlacement = (kind, x, y, direction) => {
+    const cellStep = _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_2__.GAP_SIZE;
+    const cellCenterX = x * cellStep;
+    const cellCenterY = y * cellStep;
+    const cellX = cellCenterX - _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2;
+    const cellY = cellCenterY - _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2;
+    if (kind === 'center') {
+        const size = _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BLAST_THICKNESS;
+        return {
+            x: cellCenterX - size / 2,
+            y: cellCenterY - size / 2,
+            width: size,
+            height: size,
+            centerX: cellCenterX,
+            centerY: cellCenterY,
+            degrees: 0
+        };
+    }
+    const axisLength = _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE;
+    const thickness = _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BLAST_THICKNESS;
+    switch (direction) {
+        case 'left':
+            return {
+                x: cellX,
+                y: cellCenterY - thickness / 2,
+                width: axisLength,
+                height: thickness,
+                centerX: cellX + axisLength / 2,
+                centerY: cellCenterY,
+                degrees: 180
+            };
+        case 'right':
+            return {
+                x: cellX,
+                y: cellCenterY - thickness / 2,
+                width: axisLength,
+                height: thickness,
+                centerX: cellX + axisLength / 2,
+                centerY: cellCenterY,
+                degrees: 0
+            };
+        case 'up':
+            return {
+                x: cellCenterX - axisLength / 2,
+                y: cellCenterY - thickness / 2,
+                width: axisLength,
+                height: thickness,
+                centerX: cellCenterX,
+                centerY: cellCenterY,
+                degrees: -90
+            };
+        case 'down':
+            return {
+                x: cellCenterX - axisLength / 2,
+                y: cellCenterY - thickness / 2,
+                width: axisLength,
+                height: thickness,
+                centerX: cellCenterX,
+                centerY: cellCenterY,
+                degrees: 90
+            };
+    }
+};
+const renderBlastCenterConnectors = (animation, arms) => {
+    const connectors = [];
+    if (arms.left > 0 || arms.right > 0)
+        connectors.push(renderBlastCenterConnector(animation, 'horizontal'));
+    if (arms.up > 0 || arms.down > 0)
+        connectors.push(renderBlastCenterConnector(animation, 'vertical'));
+    return connectors;
+};
+const renderBlastCenterConnector = (animation, axis) => {
+    const placement = getBlastCenterConnectorPlacement(axis);
+    const rotation = placement.degrees === 0 ? '' : ` transform="rotate(${placement.degrees} ${placement.centerX} ${placement.centerY})"`;
+    return `<use x="${placement.x}" y="${placement.y}" width="${placement.width}" height="${placement.height}" href="${getStaticBlastRef('segment', animation)}"${rotation}/>`;
+};
+const getBlastCenterConnectorPlacement = (axis) => {
+    const cellX = -_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2;
+    const cellY = -_core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE / 2;
+    const cellCenterX = 0;
+    const cellCenterY = 0;
+    const thickness = _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BLAST_THICKNESS;
     return {
-        keyTimes: `0;${start};${start};${end};${end};1`,
-        values: `0;0;${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.EXPLOSION_OPACITY};${_core_constants__WEBPACK_IMPORTED_MODULE_1__.BOMBERMAN_SVG.EXPLOSION_OPACITY};0;0`
+        x: cellX,
+        y: cellCenterY - thickness / 2,
+        width: _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE,
+        height: thickness,
+        centerX: cellCenterX,
+        centerY: cellCenterY,
+        degrees: axis === 'horizontal' ? 0 : 90
     };
 };
-const buildVisibilityAnimation = (totalFrames, startFrame, endFrameExclusive) => {
-    if (totalFrames <= 1 || (startFrame === 0 && endFrameExclusive >= totalFrames))
-        return null;
-    const start = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.frameToKeyTime)(startFrame, totalFrames);
-    const end = (0,_animation__WEBPACK_IMPORTED_MODULE_2__.frameToKeyTime)(endFrameExclusive, totalFrames);
+const getBlastArmBodyPlacement = (direction, length) => {
+    const originCenterX = 0;
+    const originCenterY = 0;
+    const cellStep = _core_constants__WEBPACK_IMPORTED_MODULE_2__.CELL_SIZE + _core_constants__WEBPACK_IMPORTED_MODULE_2__.GAP_SIZE;
+    const end = getExplosionArmOffset(direction, length);
+    const endCenterX = end.x * cellStep;
+    const endCenterY = end.y * cellStep;
+    const thickness = _core_constants__WEBPACK_IMPORTED_MODULE_2__.SVG.BLAST_THICKNESS;
+    if (direction === 'left' || direction === 'right') {
+        const left = Math.min(originCenterX, endCenterX);
+        const right = Math.max(originCenterX, endCenterX);
+        return {
+            x: left,
+            y: originCenterY - thickness / 2,
+            width: right - left,
+            height: thickness,
+            centerX: (left + right) / 2,
+            centerY: originCenterY,
+            degrees: direction === 'left' ? 180 : 0
+        };
+    }
+    const top = Math.min(originCenterY, endCenterY);
+    const bottom = Math.max(originCenterY, endCenterY);
     return {
-        keyTimes: `0;${start};${start};${end};${end};1`,
-        values: '0;0;1;1;0;0'
+        x: originCenterX - (bottom - top) / 2,
+        y: (top + bottom) / 2 - thickness / 2,
+        width: bottom - top,
+        height: thickness,
+        centerX: originCenterX,
+        centerY: (top + bottom) / 2,
+        degrees: direction === 'up' ? -90 : 90
     };
+};
+const getExplosionArmLengths = (explosion) => {
+    let left = 0;
+    let right = 0;
+    let up = 0;
+    let down = 0;
+    for (const cell of explosion.affectedCells) {
+        if (cell.y === explosion.y) {
+            if (cell.x < explosion.x)
+                left = Math.max(left, explosion.x - cell.x);
+            if (cell.x > explosion.x)
+                right = Math.max(right, cell.x - explosion.x);
+        }
+        if (cell.x === explosion.x) {
+            if (cell.y < explosion.y)
+                up = Math.max(up, explosion.y - cell.y);
+            if (cell.y > explosion.y)
+                down = Math.max(down, cell.y - explosion.y);
+        }
+    }
+    return { left, right, up, down };
 };
 const indexCellEvents = (events) => {
     const eventsByPosition = new Map();
@@ -1587,7 +2776,16 @@ const indexCellEvents = (events) => {
     return eventsByPosition;
 };
 const cellEventKey = (x, y) => `${x}:${y}`;
-const buildSpriteDefs = () => {
+const getExplosionShapeId = (explosion, spriteFrameIndex) => {
+    const arms = getExplosionArmLengths(explosion);
+    return `bm-explosion-shape-${normalizeBlastFrameIndex(spriteFrameIndex)}-${arms.left}-${arms.right}-${arms.up}-${arms.down}`;
+};
+const normalizeBlastFrameIndex = (spriteFrameIndex) => spriteFrameIndex % BLAST_SPRITES.center.length;
+const getStaticBlastRef = (kind, { spriteFrameIndex }) => {
+    const cycle = BLAST_SPRITES[kind];
+    return toSpriteRef(cycle[spriteFrameIndex % cycle.length]);
+};
+const buildSpriteDefs = (store) => {
     const symbols = new Map();
     for (const playerChains of Object.values(PLAYER_SPRITE_CHAINS)) {
         for (const cycle of Object.values(playerChains)) {
@@ -1600,31 +2798,48 @@ const buildSpriteDefs = () => {
             symbols.set(sprite.id, sprite);
     }
     symbols.set(BOMB_SPRITE.id, BOMB_SPRITE);
-    for (const sprite of EXPLOSION_SPRITE_CHAIN)
+    for (const cycle of Object.values(BLAST_SPRITES)) {
+        for (const sprite of cycle)
+            symbols.set(sprite.id, sprite);
+    }
+    for (const sprite of Object.values(ITEM_SPRITES))
         symbols.set(sprite.id, sprite);
-    const defs = Array.from(symbols.entries())
-        .map(([id, sprite]) => `<symbol id="${id}" viewBox="0 0 ${sprite.frame.width} ${sprite.frame.height}" overflow="visible">
+    const spriteDefs = Array.from(symbols.entries())
+        .map(([id, sprite]) => `<symbol id="${id}" viewBox="0 0 ${sprite.frame.width} ${sprite.frame.height}" overflow="visible"${sprite.preserveAspectRatio ? ` preserveAspectRatio="${sprite.preserveAspectRatio}"` : ''}>
 				<image width="${sprite.frame.width}" height="${sprite.frame.height}" href="${sprite.frame.data}" preserveAspectRatio="xMidYMid meet" style="image-rendering: pixelated;"${sprite.flipX ? ` transform="translate(${sprite.frame.width} 0) scale(-1 1)"` : ''}/>
 			</symbol>`)
         .join('');
-    return `<defs>${defs}</defs>`;
+    return `<defs>${spriteDefs}${buildExplosionShapeDefs(store)}</defs>`;
+};
+const buildExplosionShapeDefs = (store) => {
+    const shapeDefs = new Map();
+    for (const explosion of store.explosionEvents) {
+        for (let elapsedFrame = 0; elapsedFrame < explosion.remainingFrames; elapsedFrame++) {
+            const spriteFrameIndex = normalizeBlastFrameIndex(elapsedFrame);
+            const id = getExplosionShapeId(explosion, spriteFrameIndex);
+            if (shapeDefs.has(id))
+                continue;
+            shapeDefs.set(id, `<g id="${id}">${renderExplosionShape({ explosion, spriteFrameIndex })}</g>`);
+        }
+    }
+    return Array.from(shapeDefs.values()).join('');
 };
 const toSpriteRef = (sprite) => `#${sprite.id}`;
 const getDefaultPlayerRef = (playerId) => toSpriteRef(PLAYER_SPRITE_CHAINS[playerId].down[0]);
 const getDefaultBombRef = () => toSpriteRef(BOMB_SPRITE);
-const getDefaultExplosionRef = () => toSpriteRef(EXPLOSION_SPRITE_CHAIN[0]);
+const getItemRef = (type) => toSpriteRef(ITEM_SPRITES[type]);
 const Renderer = {
     generateAnimatedSVG
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/breakout/core/constants.ts":
+/***/ "./src/breakout/core/constants.ts"
 /*!****************************************!*\
   !*** ./src/breakout/core/constants.ts ***!
   \****************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -1682,13 +2897,13 @@ const PADDLE_COLOR = '#ffffff';
 const BALL_SHADOW_COLOR = '#aaaaaa';
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/breakout/core/game.ts":
+/***/ "./src/breakout/core/game.ts"
 /*!***********************************!*\
   !*** ./src/breakout/core/game.ts ***!
   \***********************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -1967,13 +3182,13 @@ const BreakoutGame = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/breakout/core/store.ts":
+/***/ "./src/breakout/core/store.ts"
 /*!************************************!*\
   !*** ./src/breakout/core/store.ts ***!
   \************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -1996,13 +3211,13 @@ const BreakoutStore = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/breakout/index.ts":
+/***/ "./src/breakout/index.ts"
 /*!*******************************!*\
   !*** ./src/breakout/index.ts ***!
   \*******************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2055,13 +3270,13 @@ class BreakoutRenderer {
 }
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/breakout/renderers/svg.ts":
+/***/ "./src/breakout/renderers/svg.ts"
 /*!***************************************!*\
   !*** ./src/breakout/renderers/svg.ts ***!
   \***************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2222,13 +3437,13 @@ const buildChangingValuesAnimation = (store, values) => {
 const BreakoutSVG = { generateAnimatedSVG };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/galaga/core/constants.ts":
+/***/ "./src/galaga/core/constants.ts"
 /*!**************************************!*\
   !*** ./src/galaga/core/constants.ts ***!
   \**************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2282,13 +3497,13 @@ const BULLET_IMAGE_DATA = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAC
 const SHIP_IMAGE_DATA = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABGCAYAAAB8MJLDAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAGYktHRAD/AP8A/6C9p5MAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAHdElNRQfqBQgWJQn/24JaAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDI2LTA1LTA4VDIyOjM1OjQ2KzAwOjAwKpfJ5AAAACV0RVh0ZGF0ZTptb2RpZnkAMjAyNi0wNS0wOFQyMjozNTo0NiswMDowMFvKcVgAAAAodEVYdGRhdGU6dGltZXN0YW1wADIwMjYtMDUtMDhUMjI6Mzc6MDkrMDA6MDB6KP6pAAANdklEQVR42u2cW6wdVRnH/2vNfc++HYFKe7S0FQEDaEKjlEhaHyRi0xJJrCKpDyZo0EQu8kBTSwhJjSca0fhQNVFiYiMJiQqxtEAoD4fQRHIk1YJFsWAqtJyc0rP3zJ7Zc1uzfNhnrTN7z+zL2WdTovglO/md6VzWrPn+6/vWreCcw/d9nD9/HoIXFxdz7HkeGo1GjlutVhc3m80cu64Lx3Fy7DhOF7uum+Nms4lWq5XjRqPRxZ7n5XhxcRG+7+f4/Pnzkonv+yCEAEDnwPuMaRAEAADDMDCICSHQdT3HlFJomjaQFUWBqqo5VlW1ixVFybGmaaCUDmRd10EIybFhGAAwkAnnHO12G0EQYGpqCu12G2EYol6vd7Hv+4jjGLVarYs9z0OSJJIZY6hWq10sXLVSqUg2dR1xFAEAVF1HGEUghKBcLsN1XcmO40BRFNi23cXNZhOqqkrWNA2lUqmLG40GDMOAZVldvLi4CNM0YVnWhZXAfffdxw8dOgQA2LtnD766ezcBgN8//jj/7r59AIDbbrsNDz30ELlgEgjDULp6Eeu6jjAMpdv3snD1QSzcfn5+HqdPn8bp06fhOA6Eea2WPL6wsCAlEIahdPVBLNy+iAEgDEPp9r1M6/W6bD0FN5tNyY7joF6vgzEG13VzHMcxWq2WZM/zchyGIdrttizQINN1vUt6nuchjuMct1otya7rgjGWYxFh6vW6jEj1el1GrXq9DrXdboMQAsuyINg0zRxTSmEYRo4VRYGiKANZVVUAAGNsaAUwxqBpGgB0VVovi684iE3TLGTLsiSPLQHh3lnulYCqql0SGLUCshJQVbWvBISrZ/mCSUC4fZIkfSXg+/6qJSAiTpEEkiSR/D8jgSRJ3nsJCFeflAQEj1IBaZp2uf2kJNBPDoUSEG4/KQlEUbRiCURRNFEJZLlLAr7vg1KKUqkEwZZlSTZNU7JhGDkWrt6PH374YX7ixAkAwIsvvji0AmZnZ3HXXXdxANi8eTPuuOMOAgC+78sK9H1ffsVBLNze931YliU7eKVSSbIaRRFM04SmaVIrWdZ1HY7jwLIsqKoK13X7cqlUAqUUrVZL8uHDh3H06NGhLy7s5MmTOHnyJADg3LlzuPPOO5GmKYIgQLlcllypVJAkCaIo6svVahVRFA1kVeT8zWZT9gWE22fZ930EQZBjz/O62PM8hGHI5+fnwRgD51y+3Lp162AtfZVarSaPVyoVbNy0CQAQRRHeevNNAICmadKbhBsLFn0BwZqm5Vjk/70s+gL1eh3E8zxQSkEIAWNs1fzGG2/w/fv3w/d9pGmKZ599Fr7vAwAOHzqEbVu3kt6vzjgQLVXUKy+/zLfd+GkAwM6dO/HYY48R0ThSSmVDqSgKOOerZjWOYxiGIbuu/dg0Tdl17ceWZUHXdTz33HN4++23R3b7fsY5h6qqSNMUYRjCtm3JhmEgSRKI8hexaZqIomgg01qtJpMfwY7j5Fi0/L0sokCtVpP9AtHbWq0JCRR1w0UUEMwYy7Fo+XtZJEW1Wm14FOgXEQSLNFfw+vXrSbVa5WfPns29UMQ5gpTnjvM+FZAkCQzDkC12lk3THMrZlr9fFKBxHMvaLmJVVRHHMQghfVlRlI47UYpKpYLZ2VmysLBA3nnnHbJt27bcy/b+BklAURRQShHHcY4JIYjjGKqq9mUAiONYZpe9PFQCrusOlYDneVICvu9jzZo1MjyKWDxpCWRHovpJQAysTkwCqqri0Ucf5WmaAgAopSjiLVu2YHp6moya/vazrAReeeUVfvz48YHPpZTi1ltvlYnTKBIojAKiVc+yaDlvv/32oQV/8MEHsXfvXlBKu/KAlZqQQJqmmJmZwcGDB4deIzpx4r3iOM7x0Cgg3L5XAq7rjvQ2pmlKOQgdjmNZCQjdDrN+EshylwQ8z5MjrYItyyrkUqlEsNRu3QQTN6PTrfTB8T00ESw1aaKRmqQEkiSRx0sg2IMabHTC7SxCPIFOsmVZFiil8DxPun0vi3zC8zyoSZLk+vH9xvAVRZGF2AID30FV/v0zuDiDzstmM8TVSkDIqCulhoIHsJxKK3BkBYjokCSJ9MQiTtMUSZIsS6Co5V+tBLKDIeOY6JRNWgLZiEA9zwMhREqAEIJSqZTjpUgxUooXRREURYFhGBORgKIoXRIYZFkJlEolEEJybNu2ZCoKqCgKRuFRTLjuJKLASu8jysgYG4lptVqVEhDsum6O0zQdWQIi5LxXEkjTFNVqVbp9LwsJVKvV5Sig6zrOnj0ra7yIs27IP1BHetEGAABhKfCvM0Da8RQhgXcrCnBKwTesB1c63WPeeAtYWBTP5owxIsYLwjBEo9Ho4lqtJiWgCpc4cuQI37Vr1+iFu+PLCPbtk20Cv/JKjqUOkJh/m5QE0jTtug/f8CG0jz8pnx0fOMCxZw8AYHp6GhjcxcDTTz+NrVu3ki4JtNvtsQvaa6JPPikJZIfKJ2FicUSXBMRg4iQsiiI59z8JCQielJmmmZeAGG6qgGAeH5Yn/xMJPo4zK3rA/v37MTMzw0VljGuHDx/G1NTU2Pd5DdOYxnLkuhxv4QyYfFfGGNRqtYp2u52RAIGF5XBvYuWjO6LTsVpjjK1KmlbPuwjKSoCKIazV9Nv/20xIoNVqQRV96UmN433w0ktx6MgREEJz//bhtZcSg+afwzhHstRuf/SKK8jc8b/kWnGepvjyri/i9VOnVl3G7OhygQRWZ4auY+PGTYW1aRACWnCcQ3Yyoes6NmzYUHi9ZVnjx9SMve8lYFnWsgREgiElYOiIHrpfnhyTBLj/rrEfpmWklVWZ8sejXHlhDgCQbL4W/IvbC796vIpEKvrJA4iCTBj+/l6g2ehaJKVWKpUuCXBNRfKt3bIw7NQpjvtX9uCsqX2aFuWFOagHloa4dn8B6a7thefFq3B6dvM2JOvWLWerP93P0WxICVQqlf9LIC+BMez1xYinN+9FNQhQvqjS9zzl6AuczJ/rPO/V1+Vx+vppqL99ggMAr9fAtn+msDD2zfeieu15BHYJr54L+VUXG2MVeqAExrFT50OwDZ+CDkCr9s/Z1R8/AmU2v0aAHnsJ+rGXAADpNVeAbf9M4fXaxs3QKyEiAH9bCHDVxeOl7/+XQJEEVmrnfIaTCyEHgEaQ4mOXdL7GGnu0Xhtfuwb8oikAAFlsgrw1fDZ505QOkUd5USqfP++N11HqkoBYHT6q/fbEIh4/2NHxTR+p4KndneSHA4UToL0W3/01GW3Ug49z/VsPDL3mwI4Pyfzy3qfO8H3PdSqtPffOisrebreXJSBWZr8fJeC6LlY0WnHtNddg544dAIDj2lX485I/0lHbYoUC6lL3NHsRIcvHRxx4pQRQlu5x/Sc/iS2f6IwIHXrySfx1aVHWKLYiCXx3717s3LGjs2SFAywVIXS0h4W/+zkBT3MvmnxlJ0m+JBKh0W72g5vWkpnPru1UBr0SCul8mBtvvJFvX/pI/SwrAdV1XWiaNpIEsrkCJQBVVhiGVQVAwRemtPNbgSmUYDRfyVuXBIYlQNVaDd/4+tcBABsuu2zMR144m163TpbXtu2B5xJCoJbL5YESuOTii8mPf/SjkQtA317gtdvvln9Hh35FULLGe5uEofb5r3GwTpiLfzkDvmn9wC92+eWXDy2vkEC5XF6WgFhAvGqLIqhzy41QnDCM3Z/hHOpLJ4C4UwGJH4x/r4yJaTLXdUGzefH7xbL9n5wEwjDE3ffcs6La+Dh0fBNLnaCW964VXPvhL8Cn6hwAfo0W/oRwRdc3Gw0AQyQQxzF++cgjK7rxLSjh27jkXXtxYcofnpE8i3P4Dcar7KwEZBSo1+u44YYbkKapXLMvpqTEOp0sp2mKubm591w6qqriuuuuk1NxjLFCTpJEznVWKh1v7ZLA5s2bybFjx0beOBkEAdauXcuHTVg8ffBR/m8zH7G3XH89rr76agIA/3jtNf7888/nztmYUuxYGrXuZ9VqFc888wxZ6cZJIQE0m005BT0qB0EgtqlyAPwWlDjHZYW/z8EqWhvJfzAzwz3Hgec4+PmBA4Xn3Drgvl+FzQHwqakpHkURgiBAs9mU0/KjsirGyMVMLJBfmd3LvWt2BtlqBDLqtaI8g9YPZlmUnVK6LIFWqyX3C4itLln2fR9hGHZJQFgDKV7s0yL/HeNPkc0h7Hvfc1ie0Gm329A0DeVyWUqgXC5Lt+9lsV+gXC5DdRwHuq7LlRO6rstNy70sNjAbhtGVZs4iwPVY/fL4XnsTbOh9OeewbRuMMTiOA9u2kSQJHMdBuVwu5Gq1ijiO4TgO1KK1M2JTQT8WLlcul8ee/dUyG6hUVe00SGOY2EaTjVAABnJ2zdN7tn3e0HUkYvu8piFcWnl+wbfPN5tN6LoOTdPgeV6OxV6ALIula0VMKZUbGAWL2dgiBiB3m3DOC1nsEslyqVQCY6yQxaapLNu2jTiOc6wOW0rWTwJZFucP2p8jXLSXh7lrv2RMbMgqOmeY22eZ2rbdtYZWLCPv5TRN0W63c8wYQxAEksXeniwX1bxt23LrmuA4jnMchiEYYzkOgkByu91GmqY5FuP/vSz+kxXbtvEfwITwAX3FN6kAAAAASUVORK5CYII=';
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/galaga/core/game.ts":
+/***/ "./src/galaga/core/game.ts"
 /*!*********************************!*\
   !*** ./src/galaga/core/game.ts ***!
   \*********************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2488,13 +3703,13 @@ const updateGame = (store) => {
 const GalagaGame = { startGame, stopGame };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/galaga/core/store.ts":
+/***/ "./src/galaga/core/store.ts"
 /*!**********************************!*\
   !*** ./src/galaga/core/store.ts ***!
   \**********************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2519,13 +3734,13 @@ const GalagaStore = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/galaga/index.ts":
+/***/ "./src/galaga/index.ts"
 /*!*****************************!*\
   !*** ./src/galaga/index.ts ***!
   \*****************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2578,13 +3793,13 @@ class GalagaRenderer {
 }
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/galaga/renderers/svg.ts":
+/***/ "./src/galaga/renderers/svg.ts"
 /*!*************************************!*\
   !*** ./src/galaga/renderers/svg.ts ***!
   \*************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2873,13 +4088,13 @@ const buildChangingValuesAnimation = (store, values) => {
 const GalagaSVG = { generateAnimatedSVG };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/minesweeper/core/constants.ts":
+/***/ "./src/minesweeper/core/constants.ts"
 /*!*******************************************!*\
   !*** ./src/minesweeper/core/constants.ts ***!
   \*******************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -2912,13 +4127,13 @@ const MINESWEEPER_MS_PER_FRAME = _shared_constants__WEBPACK_IMPORTED_MODULE_0__.
 const MINESWEEPER_MAX_MOVE_FRAMES = Math.max(1, Math.ceil(MINESWEEPER_MAX_MOVE_DURATION_MS / MINESWEEPER_MS_PER_FRAME));
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/minesweeper/core/game.ts":
+/***/ "./src/minesweeper/core/game.ts"
 /*!**************************************!*\
   !*** ./src/minesweeper/core/game.ts ***!
   \**************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -3247,13 +4462,13 @@ const Game = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/minesweeper/core/store.ts":
+/***/ "./src/minesweeper/core/store.ts"
 /*!***************************************!*\
   !*** ./src/minesweeper/core/store.ts ***!
   \***************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -3277,13 +4492,13 @@ const Store = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/minesweeper/index.ts":
+/***/ "./src/minesweeper/index.ts"
 /*!**********************************!*\
   !*** ./src/minesweeper/index.ts ***!
   \**********************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -3336,13 +4551,13 @@ class MinesweeperRenderer {
 }
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/minesweeper/renderers/svg.ts":
+/***/ "./src/minesweeper/renderers/svg.ts"
 /*!******************************************!*\
   !*** ./src/minesweeper/renderers/svg.ts ***!
   \******************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -3624,13 +4839,13 @@ const Renderer = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/pacman/core/constants.ts":
+/***/ "./src/pacman/core/constants.ts"
 /*!**************************************!*\
   !*** ./src/pacman/core/constants.ts ***!
   \**************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -3734,13 +4949,13 @@ const hasWall = (x, y, direction) => {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/pacman/core/game.ts":
+/***/ "./src/pacman/core/game.ts"
 /*!*********************************!*\
   !*** ./src/pacman/core/game.ts ***!
   \*********************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -4003,13 +5218,13 @@ const Game = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/pacman/core/store.ts":
+/***/ "./src/pacman/core/store.ts"
 /*!**********************************!*\
   !*** ./src/pacman/core/store.ts ***!
   \**********************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -4041,13 +5256,13 @@ const Store = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/pacman/index.ts":
+/***/ "./src/pacman/index.ts"
 /*!*****************************!*\
   !*** ./src/pacman/index.ts ***!
   \*****************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -4108,13 +5323,13 @@ class PacmanRenderer {
 }
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/pacman/movement/ghosts-movement.ts":
+/***/ "./src/pacman/movement/ghosts-movement.ts"
 /*!************************************************!*\
   !*** ./src/pacman/movement/ghosts-movement.ts ***!
   \************************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -4686,13 +5901,13 @@ const GhostsMovement = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/pacman/movement/movement-utils.ts":
+/***/ "./src/pacman/movement/movement-utils.ts"
 /*!***********************************************!*\
   !*** ./src/pacman/movement/movement-utils.ts ***!
   \***********************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -4759,13 +5974,13 @@ const MovementUtils = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/pacman/movement/pacman-movement.ts":
+/***/ "./src/pacman/movement/pacman-movement.ts"
 /*!************************************************!*\
   !*** ./src/pacman/movement/pacman-movement.ts ***!
   \************************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -5037,13 +6252,13 @@ const PacmanMovement = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/pacman/renderers/renderer-units.ts":
+/***/ "./src/pacman/renderers/renderer-units.ts"
 /*!************************************************!*\
   !*** ./src/pacman/renderers/renderer-units.ts ***!
   \************************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -5067,13 +6282,13 @@ const RendererUnits = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/pacman/renderers/svg.ts":
+/***/ "./src/pacman/renderers/svg.ts"
 /*!*************************************!*\
   !*** ./src/pacman/renderers/svg.ts ***!
   \*************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -5453,13 +6668,13 @@ const SVG = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/pacman/types.ts":
+/***/ "./src/pacman/types.ts"
 /*!*****************************!*\
   !*** ./src/pacman/types.ts ***!
   \*****************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -5473,13 +6688,13 @@ var PlayerStyle;
 })(PlayerStyle || (PlayerStyle = {}));
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/pacman/utils/grid.ts":
+/***/ "./src/pacman/utils/grid.ts"
 /*!**********************************!*\
   !*** ./src/pacman/utils/grid.ts ***!
   \**********************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -5605,13 +6820,13 @@ const Grid = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/puzzle-bobble/core/constants.ts":
+/***/ "./src/puzzle-bobble/core/constants.ts"
 /*!*********************************************!*\
   !*** ./src/puzzle-bobble/core/constants.ts ***!
   \*********************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -5676,13 +6891,13 @@ const PB_COLORS = [
 ];
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/puzzle-bobble/core/game.ts":
+/***/ "./src/puzzle-bobble/core/game.ts"
 /*!****************************************!*\
   !*** ./src/puzzle-bobble/core/game.ts ***!
   \****************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -6225,13 +7440,13 @@ const updateGame = (store) => {
 const PuzzleBobbleGame = { startGame, stopGame };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/puzzle-bobble/core/store.ts":
+/***/ "./src/puzzle-bobble/core/store.ts"
 /*!*****************************************!*\
   !*** ./src/puzzle-bobble/core/store.ts ***!
   \*****************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -6257,13 +7472,13 @@ const PuzzleBobbleStore = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/puzzle-bobble/index.ts":
+/***/ "./src/puzzle-bobble/index.ts"
 /*!************************************!*\
   !*** ./src/puzzle-bobble/index.ts ***!
   \************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -6316,13 +7531,13 @@ class PuzzleBobbleRenderer {
 }
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/puzzle-bobble/renderers/svg.ts":
+/***/ "./src/puzzle-bobble/renderers/svg.ts"
 /*!********************************************!*\
   !*** ./src/puzzle-bobble/renderers/svg.ts ***!
   \********************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -6596,13 +7811,13 @@ const generateAnimatedSVG = (store) => {
 const PuzzleBobblesVG = { generateAnimatedSVG };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/shared/arcade-renderer.ts":
+/***/ "./src/shared/arcade-renderer.ts"
 /*!***************************************!*\
   !*** ./src/shared/arcade-renderer.ts ***!
   \***************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -6680,13 +7895,13 @@ class ArcadeRenderer {
 }
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/shared/constants.ts":
+/***/ "./src/shared/constants.ts"
 /*!*********************************!*\
   !*** ./src/shared/constants.ts ***!
   \*********************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -6740,13 +7955,13 @@ const GAME_THEMES = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/shared/providers/github-contributions.ts":
+/***/ "./src/shared/providers/github-contributions.ts"
 /*!******************************************************!*\
   !*** ./src/shared/providers/github-contributions.ts ***!
   \******************************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -6868,13 +8083,13 @@ const fetchGithubContributionsGraphQL = (store) => __awaiter(void 0, void 0, voi
 });
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/shared/providers/gitlab-contributions.ts":
+/***/ "./src/shared/providers/gitlab-contributions.ts"
 /*!******************************************************!*\
   !*** ./src/shared/providers/gitlab-contributions.ts ***!
   \******************************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -6914,13 +8129,13 @@ const fetchGitlabContributions = (store) => __awaiter(void 0, void 0, void 0, fu
 });
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/shared/providers/providers.ts":
+/***/ "./src/shared/providers/providers.ts"
 /*!*******************************************!*\
   !*** ./src/shared/providers/providers.ts ***!
   \*******************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -6963,13 +8178,13 @@ const Providers = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/shared/providers/scenarios.ts":
+/***/ "./src/shared/providers/scenarios.ts"
 /*!*******************************************!*\
   !*** ./src/shared/providers/scenarios.ts ***!
   \*******************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -7137,13 +8352,13 @@ const toNonNegativeInteger = (value) => {
 const clampNumber = (value, min, max) => Math.max(min, Math.min(max, value));
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/shared/types.ts":
+/***/ "./src/shared/types.ts"
 /*!*****************************!*\
   !*** ./src/shared/types.ts ***!
   \*****************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -7154,13 +8369,13 @@ const PLATFORMS = ['github', 'gitlab', 'scenario'];
 const SCENARIOS = ['full', 'empty', 'random', 'checkerboard', 'gradient', 'streaks'];
 
 
-/***/ }),
+/***/ },
 
-/***/ "./src/shared/utils/utils.ts":
+/***/ "./src/shared/utils/utils.ts"
 /*!***********************************!*\
   !*** ./src/shared/utils/utils.ts ***!
   \***********************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
@@ -7279,7 +8494,7 @@ const Utils = {
 };
 
 
-/***/ })
+/***/ }
 
 /******/ });
 /************************************************************************/
@@ -7301,6 +8516,12 @@ const Utils = {
 /******/ 	};
 /******/ 
 /******/ 	// Execute the module function
+/******/ 	if (!(moduleId in __webpack_modules__)) {
+/******/ 		delete __webpack_module_cache__[moduleId];
+/******/ 		var e = new Error("Cannot find module '" + moduleId + "'");
+/******/ 		e.code = 'MODULE_NOT_FOUND';
+/******/ 		throw e;
+/******/ 	}
 /******/ 	__webpack_modules__[moduleId](module, module.exports, __webpack_require__);
 /******/ 
 /******/ 	// Return the exports of the module
@@ -7382,21 +8603,21 @@ __webpack_require__.r(__webpack_exports__);
 
 })();
 
-var __webpack_exports__ARCADE_GAMES = __webpack_exports__.ARCADE_GAMES;
-var __webpack_exports__ArcadeRenderer = __webpack_exports__.ArcadeRenderer;
-var __webpack_exports__BombermanRenderer = __webpack_exports__.BombermanRenderer;
-var __webpack_exports__BreakoutRenderer = __webpack_exports__.BreakoutRenderer;
-var __webpack_exports__GAME_REGISTRY = __webpack_exports__.GAME_REGISTRY;
-var __webpack_exports__GalagaRenderer = __webpack_exports__.GalagaRenderer;
-var __webpack_exports__MinesweeperRenderer = __webpack_exports__.MinesweeperRenderer;
-var __webpack_exports__PLATFORMS = __webpack_exports__.PLATFORMS;
-var __webpack_exports__PacmanRenderer = __webpack_exports__.PacmanRenderer;
-var __webpack_exports__PlayerStyle = __webpack_exports__.PlayerStyle;
-var __webpack_exports__PuzzleBobbleRenderer = __webpack_exports__.PuzzleBobbleRenderer;
-var __webpack_exports__SCENARIOS = __webpack_exports__.SCENARIOS;
-var __webpack_exports__generateScenarioContributions = __webpack_exports__.generateScenarioContributions;
-var __webpack_exports__isScenarioName = __webpack_exports__.isScenarioName;
-var __webpack_exports__resolveScenarioName = __webpack_exports__.resolveScenarioName;
+const __webpack_exports__ARCADE_GAMES = __webpack_exports__.ARCADE_GAMES;
+const __webpack_exports__ArcadeRenderer = __webpack_exports__.ArcadeRenderer;
+const __webpack_exports__BombermanRenderer = __webpack_exports__.BombermanRenderer;
+const __webpack_exports__BreakoutRenderer = __webpack_exports__.BreakoutRenderer;
+const __webpack_exports__GAME_REGISTRY = __webpack_exports__.GAME_REGISTRY;
+const __webpack_exports__GalagaRenderer = __webpack_exports__.GalagaRenderer;
+const __webpack_exports__MinesweeperRenderer = __webpack_exports__.MinesweeperRenderer;
+const __webpack_exports__PLATFORMS = __webpack_exports__.PLATFORMS;
+const __webpack_exports__PacmanRenderer = __webpack_exports__.PacmanRenderer;
+const __webpack_exports__PlayerStyle = __webpack_exports__.PlayerStyle;
+const __webpack_exports__PuzzleBobbleRenderer = __webpack_exports__.PuzzleBobbleRenderer;
+const __webpack_exports__SCENARIOS = __webpack_exports__.SCENARIOS;
+const __webpack_exports__generateScenarioContributions = __webpack_exports__.generateScenarioContributions;
+const __webpack_exports__isScenarioName = __webpack_exports__.isScenarioName;
+const __webpack_exports__resolveScenarioName = __webpack_exports__.resolveScenarioName;
 export { __webpack_exports__ARCADE_GAMES as ARCADE_GAMES, __webpack_exports__ArcadeRenderer as ArcadeRenderer, __webpack_exports__BombermanRenderer as BombermanRenderer, __webpack_exports__BreakoutRenderer as BreakoutRenderer, __webpack_exports__GAME_REGISTRY as GAME_REGISTRY, __webpack_exports__GalagaRenderer as GalagaRenderer, __webpack_exports__MinesweeperRenderer as MinesweeperRenderer, __webpack_exports__PLATFORMS as PLATFORMS, __webpack_exports__PacmanRenderer as PacmanRenderer, __webpack_exports__PlayerStyle as PlayerStyle, __webpack_exports__PuzzleBobbleRenderer as PuzzleBobbleRenderer, __webpack_exports__SCENARIOS as SCENARIOS, __webpack_exports__generateScenarioContributions as generateScenarioContributions, __webpack_exports__isScenarioName as isScenarioName, __webpack_exports__resolveScenarioName as resolveScenarioName };
 
 //# sourceMappingURL=pacman-contribution-graph.js.map

@@ -1,130 +1,145 @@
 import { Utils } from '../../shared/utils/utils';
 import { Renderer } from '../renderers/svg';
-import { BombermanPlayer, BombermanPosition, BombermanStore } from '../types';
-import { GRID_HEIGHT, GRID_WIDTH, BOMBERMAN_MAX_FRAMES, BOMBERMAN_SPRITE_SETS } from './constants';
-import { movePlayer, shouldPlaceBomb } from './ai';
-import {
-	canPlaceBomb,
-	countRemainingContributions,
-	findNearestEmptyCell,
-	placeBomb,
-	positionKey,
-	updateBombs,
-	updateExplosions
-} from './rules';
-import { BOMBERMAN_DEATH_ANIMATION_FRAMES } from './constants';
+import { BombermanStore } from '../types';
+import { DEATH_ANIMATION_FRAMES, MAX_FRAMES } from './constants';
+import { AiController } from './ai';
+import { Item } from '../entities/item';
+import { clearPlayerSpawnAreas, placePlayers } from '../entities/player';
+import { GameState } from './state';
 
-const placePlayers = (store: BombermanStore) => {
-	const playerOneStart = findNearestEmptyCell(store, { x: 0, y: 0 });
-	const playerTwoStart = findNearestEmptyCell(store, { x: GRID_WIDTH - 1, y: GRID_HEIGHT - 1 }, new Set([positionKey(playerOneStart)]));
+export class GameEngine {
+	constructor(private readonly store: BombermanStore) {}
 
-	store.players = [
-		createPlayer(1, 'Bomberman', playerOneStart, 'right', BOMBERMAN_SPRITE_SETS.player.idleDown.data),
-		createPlayer(2, 'Plunder Bomber', playerTwoStart, 'left', BOMBERMAN_SPRITE_SETS.plunderBomber.idleDown.data)
-	];
-};
+	async start() {
+		this.resetState();
 
-const createPlayer = (
-	id: BombermanPlayer['id'],
-	name: string,
-	position: BombermanPosition,
-	direction: BombermanPlayer['direction'],
-	sprite: string
-): BombermanPlayer => ({
-	id,
-	name,
-	...position,
-	alive: true,
-	direction,
-	bombsPlaced: 0,
-	cellsDestroyed: 0,
-	sprite
-});
+		this.store.grid = Utils.createGridFromData(this.store);
+		clearPlayerSpawnAreas(this.store);
+		this.store.initialColors = this.store.grid.map((col) => col.map((cell) => cell.color));
+		Item.createHiddenItems(this.store);
+		placePlayers(this.store);
+		this.pushSnapshot();
 
-const pushSnapshot = (store: BombermanStore) => {
-	store.gameHistory.push({
-		players: store.players.map((player) => ({ ...player })),
-		bombs: store.bombs.map((bomb) => ({ ...bomb })),
-		explosions: store.activeExplosions.map((explosion) => ({
-			...explosion,
-			affectedCells: explosion.affectedCells.map((cell) => ({ ...cell })),
-			hitPlayerIds: [...explosion.hitPlayerIds]
-		}))
-	});
-};
-
-const updateGame = (store: BombermanStore) => {
-	store.frameCount++;
-
-	updateExplosions(store);
-	updateBombs(store);
-
-	for (const player of store.players) {
-		if (!player.alive) continue;
-		if (canPlaceBomb(store, player) && shouldPlaceBomb(store, player)) {
-			placeBomb(store, player);
+		while (this.alivePlayerCount() > 1 && this.store.frameCount < MAX_FRAMES) {
+			this.update();
 		}
-		movePlayer(store, player);
+
+		this.appendDeathAnimationSnapshots();
+		this.finish();
 	}
 
-	pushSnapshot(store);
-};
-
-const appendDeathAnimationSnapshots = (store: BombermanStore) => {
-	if (store.players.every((player) => player.alive)) return;
-
-	for (let frame = 1; frame < BOMBERMAN_DEATH_ANIMATION_FRAMES; frame++) {
-		updateExplosions(store);
-		pushSnapshot(store);
-	}
-};
-
-const resetGameState = (store: BombermanStore) => {
-	store.frameCount = 0;
-	store.nextBombId = 0;
-	store.players = [];
-	store.bombs = [];
-	store.activeExplosions = [];
-	store.gameHistory = [];
-	store.cellEvents = [];
-	store.explosionEvents = [];
-};
-
-const stopGame = async (store: BombermanStore) => {
-	clearInterval(store.gameInterval as number);
-};
-
-const startGame = async (store: BombermanStore) => {
-	resetGameState(store);
-
-	store.grid = Utils.createGridFromData(store);
-	store.initialColors = store.grid.map((col) => col.map((cell) => cell.color));
-	placePlayers(store);
-	pushSnapshot(store);
-
-	while (
-		countRemainingContributions(store) > 0 &&
-		store.players.filter((player) => player.alive).length > 1 &&
-		store.frameCount < BOMBERMAN_MAX_FRAMES
-	) {
-		updateGame(store);
+	stop() {
+		clearInterval(this.store.gameInterval as number);
 	}
 
-	appendDeathAnimationSnapshots(store);
-
-	const svg = Renderer.generateAnimatedSVG(store);
-	store.config.svgCallback(svg);
-
-	if (store.config.gameStatsCallback) {
-		store.config.gameStatsCallback({
-			totalScore: store.cellEvents.length,
-			steps: store.frameCount,
-			ghostsEaten: 0
+	pushSnapshot() {
+		this.store.gameHistory.push({
+			players: this.store.players.map((player) => ({ ...player })),
+			bombs: this.store.bombs.map((bomb) => ({ ...bomb })),
+			explosions: this.store.activeExplosions.map((explosion) => ({
+				...explosion,
+				affectedCells: explosion.affectedCells.map((cell) => ({ ...cell })),
+				hitPlayerIds: [...explosion.hitPlayerIds]
+			})),
+			items: this.store.items.map((item) => ({ ...item }))
 		});
 	}
 
-	store.config.gameOverCallback();
-};
+	private update() {
+		this.store.frameCount++;
+
+		this.updateExplosions();
+		this.updateBombs();
+		this.killPlayersInActiveExplosions();
+
+		for (const player of this.store.players) {
+			if (!player.alive) continue;
+			const ai = new AiController(this.store, player);
+
+			if (player.canPlaceBomb(this.store) && ai.shouldPlaceBomb()) {
+				player.placeBomb(this.store);
+			}
+
+			const moveCount = player.nextMoveCount();
+			for (let moveIndex = 0; moveIndex < moveCount && player.alive; moveIndex++) {
+				ai.movePlayer();
+				Item.collectVisibleAt(this.store, player);
+				this.killPlayersInActiveExplosions();
+			}
+		}
+
+		this.pushSnapshot();
+	}
+
+	private updateExplosions() {
+		for (const explosion of this.store.activeExplosions) {
+			explosion.tick();
+		}
+		this.store.activeExplosions = this.store.activeExplosions.filter((explosion) => explosion.remainingFrames > 0);
+	}
+
+	private updateBombs() {
+		for (const bomb of this.store.bombs) {
+			bomb.tick(this.store);
+		}
+
+		for (const bomb of [...this.store.bombs]) {
+			if (!bomb.exploded && bomb.timer <= 0) bomb.explode(this.store);
+		}
+
+		this.store.bombs = this.store.bombs.filter((bomb) => !bomb.exploded);
+	}
+
+	private killPlayersInActiveExplosions() {
+		for (const player of this.store.players) {
+			if (!player.alive) continue;
+
+			for (const explosion of this.store.activeExplosions) {
+				if (!explosion.contains(player)) continue;
+
+				player.kill();
+				explosion.markPlayerHit(player.id);
+				break;
+			}
+		}
+	}
+
+	private appendDeathAnimationSnapshots() {
+		if (this.store.players.every((player) => player.alive)) return;
+
+		for (let frame = 1; frame < DEATH_ANIMATION_FRAMES; frame++) {
+			this.updateExplosions();
+			this.pushSnapshot();
+		}
+	}
+
+	private resetState() {
+		GameState.from(this.store).reset();
+	}
+
+	private finish() {
+		const svg = Renderer.generateAnimatedSVG(this.store);
+		this.store.config.svgCallback(svg);
+
+		if (this.store.config.gameStatsCallback) {
+			this.store.config.gameStatsCallback({
+				totalScore: this.store.cellEvents.length,
+				steps: this.store.frameCount,
+				ghostsEaten: 0
+			});
+		}
+
+		this.store.config.gameOverCallback();
+	}
+
+	private alivePlayerCount() {
+		return this.store.players.filter((player) => player.alive).length;
+	}
+}
+
+const stopGame = async (store: BombermanStore) => new GameEngine(store).stop();
+
+const startGame = async (store: BombermanStore) => new GameEngine(store).start();
 
 export const Game = {
 	startGame,
