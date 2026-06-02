@@ -33,11 +33,44 @@ export interface AnimationData {
 	values: string;
 }
 
-export const PLATFORMS = ['github', 'gitlab', 'scenario'] as const;
-export type Platform = (typeof PLATFORMS)[number];
+export const PLATFORM_REGISTRY = {
+	github: {
+		label: '🐙 GitHub'
+	},
+	gitlab: {
+		label: '🦊 GitLab'
+	},
+	scenario: {
+		label: '🏞️ Scenario'
+	}
+} as const;
 
-export const SCENARIOS = ['full', 'empty', 'random', 'checkerboard', 'gradient', 'streaks'] as const;
-export type Scenario = (typeof SCENARIOS)[number];
+export type Platform = keyof typeof PLATFORM_REGISTRY;
+export const PLATFORMS = Object.keys(PLATFORM_REGISTRY) as Platform[];
+
+export const SCENARIO_REGISTRY = {
+	random: {
+		label: '🎲 Random'
+	},
+	full: {
+		label: '🟩 Full'
+	},
+	empty: {
+		label: '⬜ Empty'
+	},
+	checkerboard: {
+		label: '🏁 Checkerboard'
+	},
+	gradient: {
+		label: '🌈 Gradient'
+	},
+	streaks: {
+		label: '📈 Streaks'
+	}
+} as const;
+
+export type Scenario = keyof typeof SCENARIO_REGISTRY;
+export const SCENARIOS = Object.keys(SCENARIO_REGISTRY) as Scenario[];
 
 export interface BaseConfig {
 	platform: Platform;

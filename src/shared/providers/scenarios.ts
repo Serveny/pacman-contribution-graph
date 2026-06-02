@@ -12,7 +12,7 @@ interface ScenarioResult {
 export const isScenarioName = (value: string): value is Scenario => SCENARIOS.includes(value as Scenario);
 
 export const resolveScenarioName = (scenarioArg: string | undefined): Scenario => {
-	const scenarioName = scenarioArg === '' || scenarioArg === undefined ? 'random' : scenarioArg;
+	const scenarioName = scenarioArg === '' || scenarioArg === undefined ? SCENARIOS[0] : scenarioArg;
 
 	if (!isScenarioName(scenarioName)) {
 		throw new Error(`Unknown scenario "${scenarioName}". Available scenarios: ${SCENARIOS.join(', ')}`);
