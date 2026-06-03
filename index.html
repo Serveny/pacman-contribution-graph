@@ -30,6 +30,10 @@
 				max-width: 100%;
 				height: auto;
 			}
+			#generationLoading {
+				align-items: center;
+				gap: 0.75rem;
+			}
 			.section {
 				margin-bottom: 3rem;
 			}
@@ -173,10 +177,7 @@
 					<div class="col-md-6">
 						<div class="mb-3">
 							<label for="platform" class="form-label">Platform</label>
-							<select id="platform" class="form-select">
-								<option value="github">GitHub</option>
-								<option value="gitlab">GitLab</option>
-							</select>
+							<select id="platform" class="form-select"></select>
 						</div>
 					</div>
 				</div>
@@ -231,7 +232,13 @@
 									/>
 								</div>
 							</div>
-						<div class="col-md-6" id="playerStyleRow">
+							<div class="col-md-6">
+								<div class="mb-3">
+									<label for="scenario" class="form-label">Scenario:</label>
+									<select id="scenario" class="form-select" disabled></select>
+								</div>
+							</div>
+							<div class="col-md-6" id="playerStyleRow">
 								<div class="mb-3">
 									<label for="playerStyle" class="form-label">Player Style:</label>
 									<select id="playerStyle" class="form-select">
@@ -249,6 +256,10 @@
 
 			<div class="section">
 				<h2>Game Output</h2>
+				<div id="generationLoading" class="alert alert-info" style="display: none" role="status" aria-live="polite">
+					<div class="spinner-border spinner-border-sm" aria-hidden="true"></div>
+					<span>Generating contribution graph...</span>
+				</div>
 				<div id="svgContainer" style="display: none">
 					<img id="svgholder" />
 					<br />
@@ -278,7 +289,12 @@
 						<tr>
 							<td><code>platform</code></td>
 							<td>The platform from which to fetch contribution data</td>
-							<td><code>github</code>, <code>gitlab</code></td>
+							<td id="platformOptionsCell">loading...</td>
+						</tr>
+						<tr>
+							<td><code>scenario</code></td>
+							<td>The predefined contribution scenario to use when platform is set to scenario</td>
+							<td id="scenarioOptionsCell">loading...</td>
 						</tr>
 						<tr>
 							<td><code>svgCallback</code></td>
@@ -478,19 +494,26 @@ _generated with [abozanona/pacman-contribution-graph](https://abozanona.github.i
 			</div>
 		</footer>
 
-		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-		<script type="module">
-			import { ArcadeRenderer, GAME_REGISTRY } from './dist/pacman-contribution-graph.js';
+			<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+			<script type="module">
+				import {
+					ArcadeRenderer,
+					GAME_REGISTRY,
+					PLATFORM_REGISTRY,
+					SCENARIO_REGISTRY
+				} from './dist/pacman-contribution-graph.js';
 
 			const generateButton = document.getElementById('generate');
 			const usernameInput = document.getElementById('username');
 			const platformSelect = document.getElementById('platform');
 			const gameSelect = document.getElementById('game');
 			const themeSelect = document.getElementById('theme');
+			const scenarioSelect = document.getElementById('scenario');
 			const playerStyleSelect = document.getElementById('playerStyle');
 			const playerStyleRow = document.getElementById('playerStyleRow');
 			const svgContainer = document.getElementById('svgContainer');
 			const svgHolder = document.getElementById('svgholder');
+			const generationLoading = document.getElementById('generationLoading');
 			const downloadSvgButton = document.getElementById('downloadSvg');
 			const userAvatar = document.getElementById('userAvatar');
 			const userNotFound = document.getElementById('userNotFound');
@@ -498,31 +521,54 @@ _generated with [abozanona/pacman-contribution-graph](https://abozanona.github.i
 			const githubAccessToken = document.getElementById('githubAccessToken');
 			const statGhosts = document.getElementById('statGhosts');
 
+			function appendOption(select, value, label) {
+				const option = document.createElement('option');
+				option.value = value;
+				option.textContent = label;
+				select.appendChild(option);
+			}
+
+			function appendCodeChip(cell, value) {
+				const chip = document.createElement('code');
+				chip.textContent = value;
+				if (cell.childNodes.length) cell.appendChild(document.createTextNode(', '));
+				cell.appendChild(chip);
+			}
+
+			function fillSelect(select, registry, optionsCell) {
+				for (const [value, entry] of Object.entries(registry)) {
+					appendOption(select, value, entry.label);
+					if (optionsCell) appendCodeChip(optionsCell, value);
+				}
+			}
+
+			const scenarios = Object.keys(SCENARIO_REGISTRY);
+
+			fillSelect(platformSelect, PLATFORM_REGISTRY, document.getElementById('platformOptionsCell'));
+			fillSelect(scenarioSelect, SCENARIO_REGISTRY, document.getElementById('scenarioOptionsCell'));
+			scenarioSelect.value = scenarios[0];
+
 			// Populate game selector and config-table cell dynamically from the registry
 			const gameOptionsCell = document.getElementById('gameOptionsCell');
-			gameOptionsCell.textContent = '';
 			for (const [id, entry] of Object.entries(GAME_REGISTRY)) {
-				const option = document.createElement('option');
-				option.value = id;
-				option.textContent = entry.label;
-				gameSelect.appendChild(option);
-
-				const chip = document.createElement('code');
-				chip.textContent = id;
-				if (gameOptionsCell.childNodes.length) gameOptionsCell.appendChild(document.createTextNode(', '));
-				gameOptionsCell.appendChild(chip);
+				appendOption(gameSelect, id, entry.label);
+				appendCodeChip(gameOptionsCell, id);
 			}
 
 			generateButton.disabled = true;
 
-			gameSelect.addEventListener('change', () => {
-				statGhosts.style.display = gameSelect.value === 'pacman' ? '' : 'none';
-			});
+			gameSelect.addEventListener('change', () => updateConfigurationControls());
 
 			let currentSvgBlob = null;
+			let isGenerating = false;
 
 			usernameInput.addEventListener('input', debounce(checkUser, 500));
-			platformSelect.addEventListener('input', debounce(checkUser, 500));
+			platformSelect.addEventListener('change', () => {
+				updateConfigurationControls();
+				checkUser();
+			});
+
+			updateConfigurationControls();
 
 			function debounce(func, wait) {
 				let timeout;
@@ -536,9 +582,86 @@ _generated with [abozanona/pacman-contribution-graph](https://abozanona.github.i
 				};
 			}
 
+			function updateConfigurationControls() {
+				const isScenarioPlatform = platformSelect.value === 'scenario';
+				const isGithubPlatform = platformSelect.value === 'github';
+				const isPacmanGame = gameSelect.value === 'pacman';
+
+				gameSelect.disabled = isGenerating;
+				platformSelect.disabled = isGenerating;
+				themeSelect.disabled = isGenerating;
+				scenarioSelect.disabled = isGenerating || !isScenarioPlatform;
+				usernameInput.disabled = isGenerating || isScenarioPlatform;
+				githubAccessToken.disabled = isGenerating || !isGithubPlatform;
+				playerStyleSelect.disabled = isGenerating || !isPacmanGame;
+				playerStyleRow.classList.toggle('text-muted', !isPacmanGame);
+				statGhosts.style.display = isPacmanGame ? '' : 'none';
+			}
+
+			function setGenerating(nextIsGenerating) {
+				isGenerating = nextIsGenerating;
+				generationLoading.style.display = nextIsGenerating ? 'flex' : 'none';
+				if (nextIsGenerating) generateButton.disabled = true;
+
+				updateConfigurationControls();
+			}
+
+			function buildRendererConfig() {
+				const game = gameSelect.value;
+				const platform = platformSelect.value;
+				return {
+					game,
+					platform,
+					username: usernameInput.value,
+					gameTheme: themeSelect.value,
+					...(platform === 'scenario' ? { scenario: scenarioSelect.value } : {}),
+					...(platform === 'github' ? { githubSettings: { accessToken: githubAccessToken.value } } : {}),
+					...(game === 'pacman' ? { playerStyle: playerStyleSelect.value } : {})
+				};
+			}
+
+			function showGenerationResult(result, game) {
+				const svgBlob = new Blob([result.animatedSVG], { type: 'image/svg+xml;charset=utf-8' });
+				const svgUrl = URL.createObjectURL(svgBlob);
+				svgHolder.src = svgUrl;
+				currentSvgBlob = { url: svgUrl, game };
+
+				if (result.stats) {
+					points.innerText = result.stats.totalScore;
+					steps.innerText = result.stats.steps;
+					ghostsEaten.innerText = result.stats.ghostsEaten ?? 0;
+				} else if (result.pointsSum !== undefined) {
+					points.innerText = result.pointsSum;
+				}
+
+				if (result.gameOver) console.log('Game Over');
+			}
+
+			function showGenerationError(error) {
+				const message = error instanceof Error ? error.message : String(error);
+				console.error('Generation failed:', message);
+				userNotFound.textContent = message || 'Generation failed';
+				userNotFound.style.display = 'block';
+			}
+
+			function waitForLoadingPaint() {
+				return new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+			}
+
 			async function checkUser() {
 				const username = usernameInput.value;
 				const platform = platformSelect.value;
+				if (isGenerating) {
+					generateButton.disabled = true;
+					return;
+				}
+				if (platform === 'scenario') {
+					userAvatar.style.display = 'none';
+					userNotFound.style.display = 'none';
+					generateButton.disabled = false;
+					return;
+				}
+
 				if (!username) {
 					userAvatar.style.display = 'none';
 					userNotFound.style.display = 'none';
@@ -546,7 +669,7 @@ _generated with [abozanona/pacman-contribution-graph](https://abozanona.github.i
 					return;
 				}
 
-				if (platform == 'github') {
+				if (platform === 'github') {
 					try {
 						const response = await fetch(`https://api.github.com/users/${username}`);
 						if (response.ok) {
@@ -586,54 +709,31 @@ _generated with [abozanona/pacman-contribution-graph](https://abozanona.github.i
 				}
 			}
 
-			let pr = undefined;
-
 			generateButton.addEventListener('click', () => {
-				const selectedGame = gameSelect.value;
-				const config = {
-					platform: platformSelect.value,
-					username: usernameInput.value,
-					gameTheme: themeSelect.value,
-					githubSettings: {
-						accessToken: githubAccessToken.value
-					}
-				};
+				const config = buildRendererConfig();
+				const result = { animatedSVG: '', gameOver: false };
 
 				svgContainer.style.display = 'block';
 				downloadSvgButton.style.display = 'inline-block';
-				if (pr !== undefined) {
-					pr.stop();
-				}
+				setGenerating(true);
 
-				const callbacks = {
-					svgCallback: (animatedSVG) => {
-						const svgBlob = new Blob([animatedSVG], {
-							type: 'image/svg+xml;charset=utf-8'
+				waitForLoadingPaint()
+					.then(() => {
+						const renderer = new ArcadeRenderer({
+							...config,
+							svgCallback: (svg) => (result.animatedSVG = svg),
+							gameStatsCallback: (stats) => (result.stats = stats),
+							gameOverCallback: () => (result.gameOver = true),
+							pointsIncreasedCallback: (pointsSum) => (result.pointsSum = pointsSum)
 						});
-						const svgUrl = URL.createObjectURL(svgBlob);
-						svgHolder.src = svgUrl;
-						currentSvgBlob = { url: svgUrl, game: selectedGame };
-					},
-					gameStatsCallback: (stats) => {
-						points.innerText = stats.totalScore;
-						steps.innerText = stats.steps;
-						ghostsEaten.innerText = stats.ghostsEaten ?? 0;
-					},
-					gameOverCallback: () => {
-						console.log('Game Over');
-					},
-					pointsIncreasedCallback: (pointsSum) => {
-						points.innerText = pointsSum;
-					}
-				};
-
-				pr = new ArcadeRenderer({
-					game: selectedGame,
-					...config,
-					...callbacks,
-					playerStyle: playerStyleSelect.value
-				});
-				pr.start();
+						return renderer.start();
+					})
+					.then(() => showGenerationResult(result, config.game))
+					.catch(showGenerationError)
+					.finally(() => {
+						setGenerating(false);
+						checkUser();
+					});
 			});
 
 			downloadSvgButton.addEventListener('click', () => {
